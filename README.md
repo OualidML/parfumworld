@@ -1,32 +1,80 @@
-# React + TypeScript + Vite
+# ParfumWorld (عالم العطور)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+تطبيق ويب مخصص لمحل عطور صغير، يتيح للزبائن اختيار النوتات العطرية المفضلة لديهم واستعراض العطور المطابقة لها.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 الجلسة 0: تهيئة البنية التحتية والمشروع
 
-## React Compiler
+تم إعداد وتجهيز البنية التحتية للمشروع بنجاح وتشمل الخطوات التالية:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 1. التقنيات المستخدمة (Tech Stack)
+* **الفريمورك الأساسي**: React 19 + Vite + TypeScript.
+* **التصميم والتنسيق**: Tailwind CSS v4 + shadcn/ui.
+* **إدارة المسارات (Routing)**: `react-router-dom`.
+* **التعدد اللغوي (i18n)**: `react-i18next` مع دعم التبديل الديناميكي للاتجاهات (RTL/LTR) واللغات (ar, fr, en).
+* **قاعدة البيانات والخدمات**: `@supabase/supabase-js`.
+* **الأيقونات**: `lucide-react`.
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+### 2. بنية المجلدات (Folder Structure)
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+تم تنظيم المشروع ليكون سهل الصيانة وقابلًا للتطوير مستقبلاً:
+
+```text
+/src
+  ├── /components     # العناصر القابلة لإعادة الاستخدام ومكونات shadcn/ui
+  ├── /pages          # الصفحات الرئيسية للتطبيق (مستقبلاً)
+  ├── /lib            # إعدادات المكتبات الخارجية (Supabase Client, i18n)
+  ├── /hooks          # الخطافات المخصصة (Custom Hooks)
+  ├── /locales        # ملفات الترجمة بصيغة JSON (ar.json, fr.json, en.json)
+  ├── /types          # ملفات تعريف الأنواع والـ Interfaces للـ TypeScript
+  ├── App.tsx         # المكون الرئيسي للتطبيق
+  ├── main.tsx        # نقطة البداية للمشروع وتثبيت الإعدادات الأساسية
+  └── index.css       # تنسيقات Tailwind CSS v4
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+---
+
+### 3. إعدادات الترجمة (i18n & RTL)
+تم إعداد `react-i18next` ليدعم ثلاث لغات:
+1. **العربية (ar)**: اللغة الافتراضية، وتتحول الصفحة تلقائيًا إلى اتجاه **RTL** (`dir="rtl"`).
+2. **الإنجليزية (en)**: اتجاه **LTR** (`dir="ltr"`).
+3. **الفرنسية (fr)**: اتجاه **LTR** (`dir="ltr"`).
+
+تتم التغييرات ديناميكيًا على وسم الـ `<html>` بمجرد تبديل اللغة من الواجهة.
+
+---
+
+### 4. ربط الخدمات (Integrations)
+
+* **Supabase**: تم إنشاء مشروع جديد مخصص باسم `parfumworld` عبر CLI وحفظ المفاتيح محليًا في ملف `.env.local`:
+  * `VITE_SUPABASE_URL`
+  * `VITE_SUPABASE_ANON_KEY`
+  * وتم تهيئة الـ Client في `src/lib/supabase.ts`.
+* **GitHub**: تم تهيئة مستودع Git محليًا وإعداده ليرتبط بالمستودع البعيد `https://github.com/OualidML/parfumworld.git`.
+* **Vercel**: تم إعداد ملف `vercel.json` للتعامل مع الـ Single Page Application وتمرير المسارات إلى `index.html`.
+
+---
+
+## 🛠️ التشغيل المحلي
+
+لتشغيل المشروع محليًا:
+
+1. تثبيت الاعتماديات:
+   ```bash
+   npm install
+   ```
+
+2. إنشاء ملف `.env.local` وإضافة متغيرات البيئة الخاصة بـ Supabase.
+
+3. تشغيل خادم التطوير:
+   ```bash
+   npm run dev
+   ```
+
+4. لبناء المشروع للإنتاج:
+   ```bash
+   npm run build
+   ```
