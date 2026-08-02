@@ -1,14 +1,15 @@
 import { Routes, Route } from 'react-router-dom'
 import NotePicker from './pages/NotePicker'
-import ResultsPlaceholder from './pages/ResultsPlaceholder'
+import Results from './pages/Results'
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<NotePicker />} />
-      <Route path="/results" element={<ResultsPlaceholder />} />
+      <Route path="/results" element={<Results />} />
     </Routes>
   )
 }
+
 
 export default App
