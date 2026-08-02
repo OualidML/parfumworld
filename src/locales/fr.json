@@ -144,5 +144,6 @@
   "send_magic_link": "Envoyer le lien",
   "logged_in_as": "Connecté en tant que : {{email}}",
   "wishlist_title": "Favoris",
-  "dupe_badge_text": "Inspiré de l'esprit de {{perfume}}"
+  "dupe_badge_text": "Inspiré de l'esprit de {{perfume}}",
+  "image_size_error": "L'image est trop volumineuse. Veuillez en télécharger une de moins de 1.5 Mo."
 }

@@ -124,7 +124,7 @@ export default function PerfumeDetails() {
 
       } catch (err: any) {
         console.error('Error fetching perfume details:', err)
-        setError(err.message || 'Failed to load perfume data.')
+        setError(t('db_load_error'))
       } finally {
         setLoading(false)
       }
@@ -239,18 +239,18 @@ export default function PerfumeDetails() {
           
           {/* Left Column: Image Card */}
           <div className="md:col-span-5 w-full flex flex-col gap-4">
-            <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-neutral-950 border border-white/5 shadow-2xl">
-              {perfume.image_url ? (
+            <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-neutral-950 border border-white/5 shadow-2xl flex items-center justify-center text-neutral-600 font-serif">
+              <span className="absolute">No Image</span>
+              {perfume.image_url && (
                 <img 
                   src={perfume.image_url} 
                   alt={perfume.name}
                   loading="lazy"
-                  className="w-full h-full object-cover opacity-95 hover:scale-102 transition-transform duration-750"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  className="w-full h-full object-cover opacity-95 hover:scale-102 transition-transform duration-750 z-10"
                 />
-              ) : (
-                <div className="w-full h-full bg-neutral-900 flex items-center justify-center text-neutral-500 font-serif">
-                  No Image
-                </div>
               )}
               
               {/* Target gender overlay tag */}
@@ -457,20 +457,20 @@ export default function PerfumeDetails() {
                   className="group bg-neutral-900/20 border border-white/5 hover:border-gold-500/20 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
                 >
                   {/* Image */}
-                  <div className="aspect-video w-full overflow-hidden bg-neutral-950 relative">
-                    {p.image_url ? (
+                  <div className="aspect-video w-full overflow-hidden bg-neutral-950 relative flex items-center justify-center text-neutral-650 font-serif text-[10px]">
+                    <span className="absolute">No Image</span>
+                    {p.image_url && (
                       <img 
                         src={p.image_url} 
                         alt={p.name}
                         loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 opacity-90"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 opacity-90 z-10"
                       />
-                    ) : (
-                      <div className="w-full h-full bg-neutral-900 flex items-center justify-center text-neutral-600 font-serif">
-                        No Image
-                      </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent z-10 pointer-events-none" />
                   </div>
 
                   {/* Details */}

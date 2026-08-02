@@ -144,5 +144,6 @@
   "send_magic_link": "إرسال رابط الدخول",
   "logged_in_as": "مسجل الدخول كـ: {{email}}",
   "wishlist_title": "المفضلة",
-  "dupe_badge_text": "مستوحى من روح {{perfume}}"
+  "dupe_badge_text": "مستوحى من روح {{perfume}}",
+  "image_size_error": "حجم الصورة كبير جداً. يرجى رفع صورة أصغر من 1.5 ميغابايت."
 }

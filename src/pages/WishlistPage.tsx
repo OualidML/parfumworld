@@ -261,20 +261,20 @@ export default function WishlistPage() {
                 </button>
 
                 {/* Scent Cover Image */}
-                <div className="aspect-video w-full overflow-hidden bg-neutral-950 relative">
-                  {perfume.image_url ? (
+                <div className="aspect-video w-full overflow-hidden bg-neutral-950 relative flex items-center justify-center text-neutral-600 font-serif text-xs">
+                  <span>No Image</span>
+                  {perfume.image_url && (
                     <img 
                       src={perfume.image_url} 
                       alt={perfume.name}
                       loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 opacity-90"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500 opacity-90 absolute z-10"
                     />
-                  ) : (
-                    <div className="w-full h-full bg-neutral-900 flex items-center justify-center text-neutral-600 font-serif">
-                      No Image
-                    </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent z-10 pointer-events-none" />
                 </div>
 
                 {/* Card Details */}

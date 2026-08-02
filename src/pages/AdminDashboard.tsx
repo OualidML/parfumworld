@@ -319,6 +319,12 @@ export default function AdminDashboard() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Reject files exceeding 1.5MB
+    if (file.size > 1.5 * 1024 * 1024) {
+      alert(t('image_size_error') || 'Image size exceeds 1.5MB limit. Please compress it first.')
+      return
+    }
+
     setUploadingImage(true)
     try {
       const fileExt = file.name.split('.').pop()

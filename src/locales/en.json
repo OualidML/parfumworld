@@ -144,5 +144,6 @@
   "send_magic_link": "Send Login Link",
   "logged_in_as": "Logged in as: {{email}}",
   "wishlist_title": "Wishlist",
-  "dupe_badge_text": "Inspired by the spirit of {{perfume}}"
+  "dupe_badge_text": "Inspired by the spirit of {{perfume}}",
+  "image_size_error": "Image size is too large. Please upload an image smaller than 1.5MB."
 }

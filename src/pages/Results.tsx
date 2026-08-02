@@ -135,7 +135,7 @@ export default function Results() {
         }
       } catch (err: any) {
         console.error('Error fetching matching results:', err)
-        setError(err.message || 'Failed to match perfumes.')
+        setError(t('db_load_error'))
       } finally {
         setLoading(false)
       }
@@ -369,19 +369,20 @@ export default function Results() {
                       className="group bg-neutral-900/30 border border-white/5 hover:border-gold-500/25 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between relative cursor-pointer"
                     >
                       {/* Image container & Match Badge */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-neutral-950">
-                        {perfume.image_url ? (
+                      <div className="relative aspect-video w-full overflow-hidden bg-neutral-950 flex items-center justify-center text-neutral-600 font-serif">
+                        <span className="absolute text-xs tracking-wider uppercase">No Image</span>
+                        {perfume.image_url && (
                           <img 
                             src={perfume.image_url} 
                             alt={perfume.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 z-10"
                           />
-                        ) : (
-                          <div className="w-full h-full bg-neutral-900 flex items-center justify-center text-neutral-600 font-serif">
-                            No Image
-                          </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent z-10 pointer-events-none" />
                         
                         {/* Wishlist Toggle Heart */}
                         <button
@@ -641,18 +642,36 @@ export default function Results() {
                   <tr>
                     <td className="py-4 px-3 text-neutral-400 font-medium">Image</td>
                     <td className="py-4 px-3">
-                      {comparedPerfumes[0].image_url ? (
-                        <img src={comparedPerfumes[0].image_url} alt={comparedPerfumes[0].name} className="h-20 w-32 object-cover rounded-xl border border-white/5" />
-                      ) : (
-                        <div className="h-20 w-32 bg-neutral-950 flex items-center justify-center text-neutral-600 rounded-xl">No Photo</div>
-                      )}
+                      <div className="h-20 w-32 bg-neutral-950 flex items-center justify-center text-neutral-600 rounded-xl relative overflow-hidden text-[10px]">
+                        <span className="absolute">No Photo</span>
+                        {comparedPerfumes[0].image_url && (
+                          <img 
+                            src={comparedPerfumes[0].image_url} 
+                            alt={comparedPerfumes[0].name} 
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                            className="h-full w-full object-cover rounded-xl border border-white/5 z-10" 
+                          />
+                        )}
+                      </div>
                     </td>
                     <td className="py-4 px-3">
-                      {comparedPerfumes[1].image_url ? (
-                        <img src={comparedPerfumes[1].image_url} alt={comparedPerfumes[1].name} className="h-20 w-32 object-cover rounded-xl border border-white/5" />
-                      ) : (
-                        <div className="h-20 w-32 bg-neutral-950 flex items-center justify-center text-neutral-600 rounded-xl">No Photo</div>
-                      )}
+                      <div className="h-20 w-32 bg-neutral-950 flex items-center justify-center text-neutral-600 rounded-xl relative overflow-hidden text-[10px]">
+                        <span className="absolute">No Photo</span>
+                        {comparedPerfumes[1].image_url && (
+                          <img 
+                            src={comparedPerfumes[1].image_url} 
+                            alt={comparedPerfumes[1].name} 
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                            className="h-full w-full object-cover rounded-xl border border-white/5 z-10" 
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
 
