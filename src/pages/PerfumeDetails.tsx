@@ -174,7 +174,7 @@ export default function PerfumeDetails() {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-10 w-10 text-gold-500 animate-spin" />
-        <p className="text-neutral-400 text-sm italic font-light">Loading olfactive details...</p>
+        <p className="text-neutral-400 text-sm italic font-light">{t('loading_details')}</p>
       </div>
     )
   }
@@ -186,7 +186,7 @@ export default function PerfumeDetails() {
           <HelpCircle className="h-8 w-8" />
         </div>
         <h2 className="text-xl font-bold font-serif">{t('perfume_details_title')}</h2>
-        <p className="text-sm text-neutral-400 max-w-sm mt-1">{error || 'Perfume profile could not be loaded.'}</p>
+        <p className="text-sm text-neutral-400 max-w-sm mt-1">{error || t('db_load_error')}</p>
         <button
           onClick={() => navigate('/')}
           className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-neutral-900 border border-white/10 rounded-full text-xs text-white hover:bg-neutral-800 transition-colors"
@@ -254,14 +254,14 @@ export default function PerfumeDetails() {
               )}
               
               {/* Target gender overlay tag */}
-              <div className={`absolute top-4 ${isRtl ? 'right-4' : 'left-4'} z-10`}>
+              <div className="absolute top-4 end-4 z-10">
                 <span className="inline-flex items-center px-3 py-1 rounded-full bg-black/75 border border-white/10 backdrop-blur-md text-[10px] font-bold text-gold-400 tracking-wider capitalize">
                   {t(`gender_options.${perfume.gender}`)}
                 </span>
               </div>
 
               {/* Volume tag */}
-              <div className={`absolute bottom-4 ${isRtl ? 'left-4' : 'right-4'} z-10`}>
+              <div className="absolute bottom-4 start-4 z-10">
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-burgundy-950/80 border border-gold-500/20 backdrop-blur-md text-[10px] font-mono text-gold-400 font-bold">
                   <Volume2 className="h-3 w-3" />
                   {perfume.volume_ml} ml
@@ -302,7 +302,7 @@ export default function PerfumeDetails() {
             <div className="flex items-center justify-between bg-white/5 border border-white/5 rounded-2xl p-4.5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold">
-                  {perfume.concentration.toUpperCase()} Scent
+                  {perfume.concentration.toUpperCase()}
                 </span>
                 <span className="text-2xl md:text-3xl font-serif font-black text-gold-400">
                   {perfume.price} $
@@ -324,11 +324,11 @@ export default function PerfumeDetails() {
             </div>
 
             {/* Description details */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 text-start">
               <h3 className="text-xs text-neutral-400 uppercase tracking-widest font-bold">
-                {currentLanguage === 'ar' ? 'عن العطر' : 'About the fragrance'}
+                {t('about_fragrance')}
               </h3>
-              <p className="text-sm text-neutral-300 leading-relaxed font-light rtl:text-right">
+              <p className="text-sm text-neutral-300 leading-relaxed font-light text-start">
                 {getLocalizedDescription(perfume)}
               </p>
             </div>
@@ -346,7 +346,7 @@ export default function PerfumeDetails() {
               </a>
             ) : (
               <div className="w-full bg-neutral-900 border border-white/5 rounded-2xl p-4 text-center text-xs text-neutral-500 font-semibold italic">
-                {currentLanguage === 'ar' ? 'العطر غير متوفر حالياً بالمحل' : 'Scent currently out of stock'}
+                {t('out_of_stock')}
               </div>
             )}
 
@@ -494,7 +494,7 @@ export default function PerfumeDetails() {
             </div>
           ) : (
             <p className="text-xs text-neutral-500 italic py-4">
-              {currentLanguage === 'ar' ? 'لا توجد عطور مشابهة حالياً.' : 'No similar perfumes available.'}
+              {t('similar_empty')}
             </p>
           )}
         </section>

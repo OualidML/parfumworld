@@ -42,7 +42,7 @@ export default function NotePicker() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const currentLanguage = i18n.language || 'ar'
-  const isRtl = currentLanguage.startsWith('ar')
+
 
   // Database states
   const [categories, setCategories] = useState<NoteCategory[]>([])
@@ -85,7 +85,7 @@ export default function NotePicker() {
         }
       } catch (err: any) {
         console.error('Error fetching note data:', err)
-        setError(err.message || 'Failed to load database records.')
+        setError(err.message || t('db_load_error'))
       } finally {
         setLoading(false)
       }
@@ -124,14 +124,23 @@ export default function NotePicker() {
     i18n.changeLanguage(lng)
   }
 
+  const normalizeText = (str: string) => {
+    return str
+      .toLowerCase()
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/ى/g, 'ي')
+      .trim()
+  }
+
   // Calculate matching notes from the database based on debounced search query
   const searchResults = useMemo(() => {
     if (!debouncedQuery.trim()) return []
-    const q = debouncedQuery.toLowerCase().trim()
+    const q = normalizeText(debouncedQuery)
     return notes.filter(note => 
-      note.name_ar.toLowerCase().includes(q) ||
-      note.name_en.toLowerCase().includes(q) ||
-      note.name_fr.toLowerCase().includes(q)
+      normalizeText(note.name_ar).includes(q) ||
+      normalizeText(note.name_en).includes(q) ||
+      normalizeText(note.name_fr).includes(q)
     )
   }, [debouncedQuery, notes])
 
@@ -203,7 +212,7 @@ export default function NotePicker() {
           {/* Search container */}
           <div ref={searchContainerRef} className="relative w-full max-w-sm">
             <div className="relative">
-              <Search className={`absolute top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 ${isRtl ? 'right-3' : 'left-3'}`} />
+              <Search className="absolute top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 start-3" />
               <input
                 type="text"
                 placeholder={t('search_placeholder')}
@@ -213,9 +222,7 @@ export default function NotePicker() {
                   setShowSearchResults(true)
                 }}
                 onFocus={() => setShowSearchResults(true)}
-                className={`w-full bg-neutral-900/90 border border-white/10 rounded-full py-2.5 text-sm text-white focus:outline-none focus:border-gold-500/50 transition-all backdrop-blur-sm ${
-                  isRtl ? 'pr-9 pl-4' : 'pl-9 pr-4'
-                }`}
+                className="w-full bg-neutral-900/90 border border-white/10 rounded-full py-2.5 text-sm text-white focus:outline-none focus:border-gold-500/50 transition-all backdrop-blur-sm ps-9 pe-4"
               />
               {searchQuery && (
                 <button
@@ -223,7 +230,7 @@ export default function NotePicker() {
                     setSearchQuery('')
                     setShowSearchResults(false)
                   }}
-                  className={`absolute top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white p-1 rounded-full hover:bg-white/5 ${isRtl ? 'left-3' : 'right-3'}`}
+                  className="absolute top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white p-1 rounded-full hover:bg-white/5 end-3"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -244,11 +251,11 @@ export default function NotePicker() {
                           setSearchQuery('')
                           setShowSearchResults(false)
                         }}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-burgundy-950/40 text-left rtl:text-right transition-colors"
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-burgundy-950/40 text-start transition-colors"
                       >
-                        <div>
+                        <div className="text-start">
                           <p className="text-sm font-medium text-white">{getLocalizedName(note)}</p>
-                          <p className="text-[10px] text-neutral-400 capitalize mt-0.5">{note.layer} Note</p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">{t('layer_' + note.layer)}</p>
                         </div>
                         {isSelected && (
                           <Check className="h-4 w-4 text-gold-500 stroke-[3]" />
@@ -297,7 +304,7 @@ export default function NotePicker() {
         {loading && (
           <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 className="h-10 w-10 text-gold-500 animate-spin" />
-            <p className="text-neutral-400 text-sm italic font-light">Loading scent profiles...</p>
+            <p className="text-neutral-400 text-sm italic font-light">{t('loading_profiles')}</p>
           </div>
         )}
 
@@ -319,7 +326,7 @@ export default function NotePicker() {
               <div className="flex items-center justify-between border-b border-white/5 pb-2">
                 <h2 className="text-xs text-gold-400 uppercase tracking-widest font-semibold flex items-center gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5 text-gold-500" />
-                  {currentLanguage === 'ar' ? 'العائلات العطرية' : 'Olfactive Families'}
+                  {t('olfactive_families')}
                 </h2>
               </div>
 
@@ -356,32 +363,32 @@ export default function NotePicker() {
                     <button
                       key={note.id}
                       onClick={() => toggleNote(note)}
-                      className={`group p-4 rounded-2xl text-right rtl:text-right border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between items-start text-start gap-4 cursor-pointer min-h-[110px] ${
+                      className={`group p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between items-start text-start gap-4 cursor-pointer min-h-[110px] ${
                         isSelected
                           ? 'bg-burgundy-950 border-gold-500 text-gold-400 shadow-lg shadow-gold-500/5'
                           : 'bg-neutral-900/30 border-white/10 text-neutral-300 hover:bg-neutral-900/60 hover:border-white/20'
                       }`}
                     >
                       {/* Note Label Header */}
-                      <div className="w-full flex justify-between items-start gap-2">
+                      <div className="w-full flex justify-between items-start gap-2 text-start">
                         <span className="text-sm font-bold tracking-wide leading-tight group-hover:text-white transition-colors">
                           {getLocalizedName(note)}
                         </span>
                         {isSelected ? (
-                          <div className="h-5 w-5 rounded-full bg-gold-500 flex items-center justify-center text-neutral-950 shadow-md">
+                          <div className="h-5 w-5 rounded-full bg-gold-500 flex items-center justify-center text-neutral-950 shadow-md shrink-0">
                             <Check className="h-3.5 w-3.5 stroke-[3.5]" />
                           </div>
                         ) : (
-                          <div className="h-5 w-5 rounded-full border border-white/10 group-hover:border-white/30 transition-colors" />
+                          <div className="h-5 w-5 rounded-full border border-white/10 group-hover:border-white/30 transition-colors shrink-0" />
                         )}
                       </div>
 
                       {/* Note Description Footer */}
-                      <div className="w-full">
+                      <div className="w-full text-start">
                         <span className={`text-[9px] uppercase tracking-wider font-semibold block ${
                           isSelected ? 'text-gold-400/80' : 'text-neutral-400'
                         }`}>
-                          {note.layer} Note
+                          {t('layer_' + note.layer)}
                         </span>
                         {note.description_ar && currentLanguage === 'ar' && (
                           <p className="text-[10px] text-neutral-400 mt-1 line-clamp-1 leading-snug font-light">
@@ -427,7 +434,7 @@ export default function NotePicker() {
                 {selectedNotes.map((note) => (
                   <div
                     key={note.id}
-                    className="flex items-center gap-1.5 bg-burgundy-750/70 border border-gold-500/20 text-gold-400 rounded-full pl-2 pr-1 py-1 shrink-0 text-[10px] font-bold"
+                    className="flex items-center gap-1.5 bg-burgundy-750/70 border border-gold-500/20 text-gold-400 rounded-full ps-2 pe-1 py-1 shrink-0 text-[10px] font-bold"
                   >
                     <span>{getLocalizedName(note)}</span>
                     <button
@@ -451,9 +458,9 @@ export default function NotePicker() {
               <span>{t('show_results')}</span>
             </button>
           ) : (
-            <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-2xl p-3.5 max-w-md w-full md:w-auto leading-tight text-center md:text-left rtl:text-right">
+            <div className="flex items-center gap-3 bg-white/5 border border-white/5 rounded-2xl p-3.5 max-w-md w-full md:w-auto leading-tight text-start">
               <HelpCircle className="h-5 w-5 text-gold-500 shrink-0" />
-              <div>
+              <div className="text-start">
                 <p className="text-xs font-bold text-white mb-0.5">{t('empty_state_title')}</p>
                 <p className="text-[10px] text-neutral-400 font-light">{t('empty_state_desc')}</p>
               </div>

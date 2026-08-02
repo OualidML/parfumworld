@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Tajawal:wght@200..900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -7,9 +7,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: 'Playfair Display', var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
-    --font-serif: 'Playfair Display', Georgia, serif;
+    --font-heading: 'Playfair Display', 'Tajawal', 'Cairo', var(--font-sans);
+    --font-sans: 'Tajawal', 'Cairo', 'Geist Variable', sans-serif;
+    --font-serif: 'Playfair Display', 'Tajawal', 'Cairo', Georgia, serif;
     --color-burgundy-50: #fcf5f6;
     --color-burgundy-100: #f7e8eb;
     --color-burgundy-200: #f0d5db;

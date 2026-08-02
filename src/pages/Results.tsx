@@ -187,7 +187,7 @@ export default function Results() {
             </span>
           </div>
 
-          <div className="w-[100px] flex justify-end text-[10px] text-neutral-400 uppercase tracking-widest font-light">
+          <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-light text-end">
             {t('results_title')}
           </div>
 
@@ -201,7 +201,7 @@ export default function Results() {
         {loading && (
           <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 className="h-10 w-10 text-gold-500 animate-spin" />
-            <p className="text-neutral-400 text-sm italic font-light">Matching scent notes...</p>
+            <p className="text-neutral-400 text-sm italic font-light">{t('loading_profiles')}</p>
           </div>
         )}
 
@@ -234,7 +234,7 @@ export default function Results() {
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-end text-start">
                   {/* 1. Gender Filter */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-neutral-400 font-medium">{t('gender_label')}</label>
@@ -249,7 +249,7 @@ export default function Results() {
                               : 'text-neutral-400 hover:text-neutral-200'
                           }`}
                         >
-                          {g === 'all' ? (currentLanguage === 'ar' ? 'الكل' : 'All') : t(`gender_options.${g}`)}
+                          {g === 'all' ? t('gender_all') : t(`gender_options.${g}`)}
                         </button>
                       ))}
                     </div>
@@ -263,7 +263,7 @@ export default function Results() {
                       onChange={(e) => setFilterConcentration(e.target.value)}
                       className="w-full bg-neutral-950/90 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-gold-500/50"
                     >
-                      <option value="all">{currentLanguage === 'ar' ? 'جميع التركيزات' : 'All Concentrations'}</option>
+                      <option value="all">{t('concentration_all')}</option>
                       <option value="parfum">Parfum</option>
                       <option value="edp">Eau de Parfum (EDP)</option>
                       <option value="edt">Eau de Toilette (EDT)</option>
@@ -365,12 +365,12 @@ export default function Results() {
                             {perfume.in_stock ? (
                               <span className="text-emerald-400 flex items-center gap-1 text-[9px]">
                                 <CheckCircle2 className="h-3 w-3" />
-                                {currentLanguage === 'ar' ? 'متوفر' : 'In Stock'}
+                                {t('in_stock')}
                               </span>
                             ) : (
                               <span className="text-neutral-500 flex items-center gap-1 text-[9px]">
                                 <Package className="h-3 w-3" />
-                                {currentLanguage === 'ar' ? 'نفذ' : 'Out of Stock'}
+                                {t('out_of_stock')}
                               </span>
                             )}
                           </div>
@@ -390,7 +390,7 @@ export default function Results() {
                         <div className="border-t border-white/5 pt-4">
                           <span className="text-[9px] uppercase tracking-wider font-semibold text-neutral-400 flex items-center gap-1 mb-2.5">
                             <Layers className="h-3 w-3 text-gold-500" />
-                            {currentLanguage === 'ar' ? 'مكونات العطر' : 'Fragrance Notes'}
+                            {t('scent_pyramid_header')}
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {/* Loop over notes related to the perfume */}
@@ -441,9 +441,7 @@ export default function Results() {
                 </h3>
                 
                 <p className="text-sm text-neutral-400 leading-relaxed mb-8 max-w-md mx-auto font-light">
-                  {currentLanguage === 'ar' 
-                    ? 'جرب تقليل عدد النوتات العطرية المحددة أو إعادة تصفية خيارات البحث (الجنس، السعر) لتوسيع النتائج المقترحة.'
-                    : 'Try reducing your selected notes or loosening secondary filters to broaden search matches.'}
+                  {t('results_empty_desc')}
                 </p>
 
                 {/* Offer auto removal note action */}
