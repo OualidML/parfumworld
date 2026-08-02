@@ -300,14 +300,14 @@ export default function PerfumeDetails() {
               )}
             </div>
 
-            {/* Price block and wishlisting */}
+            {/* Concentration block and wishlisting */}
             <div className="flex items-center justify-between bg-white/5 border border-white/5 rounded-2xl p-4.5">
               <div className="flex flex-col gap-0.5">
                 <span className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold">
-                  {perfume.concentration.toUpperCase()}
+                  {t('concentration_label')}
                 </span>
-                <span className="text-2xl md:text-3xl font-serif font-black text-gold-400">
-                  {perfume.price} $
+                <span className="text-lg md:text-xl font-serif font-black text-gold-400 uppercase">
+                  {perfume.concentration}
                 </span>
               </div>
 
@@ -492,8 +492,7 @@ export default function PerfumeDetails() {
                     </div>
 
                     <div className="border-t border-white/5 pt-2 flex justify-between items-center text-[10px] font-medium font-mono text-neutral-400">
-                      <span>{p.volume_ml}ml</span>
-                      <span className="text-gold-400 font-bold font-serif">{p.price} $</span>
+                      <span>{p.volume_ml}ml • {p.concentration.toUpperCase()}</span>
                     </div>
                   </div>
                 </Link>

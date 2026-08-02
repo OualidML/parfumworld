@@ -325,7 +325,6 @@ export default function WishlistPage() {
                           {t('out_of_stock')}
                         </span>
                       )}
-                      <span className="text-gold-400 font-bold font-serif text-sm">{perfume.price} $</span>
                     </div>
                   </div>
                 </div>

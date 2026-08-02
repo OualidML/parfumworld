@@ -43,7 +43,7 @@
   "scent_pyramid_base": "Base Notes (Dry Down)",
   "inspired_by_label": "Inspired by: {{perfume}}",
   "order_via_whatsapp": "Order via WhatsApp 💬",
-  "whatsapp_message": "Hello, I would like to order the perfume {{name}} in {{volume}}ml size for ${{price}}.",
+  "whatsapp_message": "Hello, I would like to order the perfume {{name}} ({{volume}}ml) and ask about the price.",
   "similar_perfumes_title": "Similar Perfumes You May Like",
   "wishlist_added": "Added to Wishlist ♥",
   "wishlist_add": "Add to Wishlist ♡",

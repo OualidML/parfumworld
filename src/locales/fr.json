@@ -43,7 +43,7 @@
   "scent_pyramid_base": "Notes de Fond (Sillage)",
   "inspired_by_label": "Inspiré par : {{perfume}}",
   "order_via_whatsapp": "Commander via WhatsApp 💬",
-  "whatsapp_message": "Bonjour, je souhaite commander le parfum {{name}} en taille {{volume}}ml pour {{price}} $.",
+  "whatsapp_message": "Bonjour, je souhaite commander le parfum {{name}} ({{volume}}ml) et me renseigner sur le prix.",
   "similar_perfumes_title": "Parfums Similaires",
   "wishlist_added": "Ajouté aux favoris ♥",
   "wishlist_add": "Ajouter aux favoris ♡",

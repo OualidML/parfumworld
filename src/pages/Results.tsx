@@ -93,7 +93,6 @@ export default function Results() {
 
   // Secondary Filters State
   const [filterGender, setFilterGender] = useState<string>('all')
-  const [filterMaxPrice, setFilterMaxPrice] = useState<number>(500)
   const [filterConcentration, setFilterConcentration] = useState<string>('all')
   const [filterInStockOnly, setFilterInStockOnly] = useState<boolean>(false)
 
@@ -140,11 +139,6 @@ export default function Results() {
           setStoreName(settingsData.value)
         }
 
-        // Set max price slider dynamically based on results
-        if (matchedData && matchedData.length > 0) {
-          const maxPriceVal = Math.max(...matchedData.map((p: any) => Number(p.price)))
-          setFilterMaxPrice(Math.ceil(maxPriceVal))
-        }
       } catch (err: any) {
         console.error('Error fetching matching results:', err)
         setError(t('db_load_error'))
@@ -183,27 +177,18 @@ export default function Results() {
     setSearchParams({ notes: updatedIds.join(',') })
   }
 
-  // Derive dynamic slider max boundary
-  const absoluteMaxPriceLimit = useMemo(() => {
-    if (perfumes.length === 0) return 500
-    const highest = Math.max(...perfumes.map(p => Number(p.price)))
-    return Math.ceil(highest)
-  }, [perfumes])
-
   // Apply secondary filtering client-side
   const filteredPerfumes = useMemo(() => {
     return perfumes.filter(p => {
       // 1. Gender Filter
       if (filterGender !== 'all' && p.gender !== filterGender) return false
-      // 2. Price Filter
-      if (Number(p.price) > filterMaxPrice) return false
-      // 3. Concentration Filter
+      // 2. Concentration Filter
       if (filterConcentration !== 'all' && p.concentration !== filterConcentration) return false
-      // 4. In Stock Filter
+      // 3. In Stock Filter
       if (filterInStockOnly && !p.in_stock) return false
       return true
     })
-  }, [perfumes, filterGender, filterMaxPrice, filterConcentration, filterInStockOnly])
+  }, [perfumes, filterGender, filterConcentration, filterInStockOnly])
 
   const comparedPerfumes = useMemo(() => {
     return perfumes.filter(p => comparedPerfumeIds.includes(p.id))
@@ -297,7 +282,7 @@ export default function Results() {
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-end text-start">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-end text-start">
                   {/* 1. Gender Filter */}
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-neutral-400 font-medium">{t('gender_label')}</label>
@@ -334,25 +319,7 @@ export default function Results() {
                     </select>
                   </div>
 
-                  {/* 3. Price Filter Slider */}
-                  <div className="flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs text-neutral-400 font-medium">
-                        {t('price_max_filter', { price: filterMaxPrice })}
-                      </label>
-                      <span className="text-[10px] text-neutral-500 font-mono">Max: {absoluteMaxPriceLimit}$</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={absoluteMaxPriceLimit}
-                      value={filterMaxPrice}
-                      onChange={(e) => setFilterMaxPrice(Number(e.target.value))}
-                      className="w-full h-1.5 bg-neutral-950 rounded-lg appearance-none cursor-pointer accent-gold-500 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* 4. In Stock Filter */}
+                  {/* 3. In Stock Filter */}
                   <div className="flex items-center gap-2.5 py-1 sm:py-2.5">
                     <input
                       id="inStockCheck"
@@ -514,9 +481,6 @@ export default function Results() {
                           <div className="flex items-center gap-1">
                             <span className="text-[10px] text-neutral-450 font-mono">
                               {perfume.volume_ml}ml • {perfume.concentration.toUpperCase()}
-                            </span>
-                            <span className="text-base font-serif font-extrabold text-gold-400 bg-clip-text">
-                              {perfume.price} $
                             </span>
                           </div>
                         </div>
@@ -698,12 +662,7 @@ export default function Results() {
                     </td>
                   </tr>
 
-                  {/* Price row */}
-                  <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">{t('compare_price')}</td>
-                    <td className="py-4 px-3 font-bold font-mono text-sm text-white">{comparedPerfumes[0].price} $</td>
-                    <td className="py-4 px-3 font-bold font-mono text-sm text-white">{comparedPerfumes[1].price} $</td>
-                  </tr>
+
 
                   {/* Volume row */}
                   <tr>

@@ -43,7 +43,7 @@
   "scent_pyramid_base": "قاعدة العطر (ثبات العطر)",
   "inspired_by_label": "مستوحى من عطر: {{perfume}}",
   "order_via_whatsapp": "اطلب عبر واتساب 💬",
-  "whatsapp_message": "مرحباً، أريد طلب عطر {{name}} بحجم {{volume}} مل بسعر {{price}} $.",
+  "whatsapp_message": "مرحباً، أريد طلب عطر {{name}} بحجم {{volume}} مل والاستفسار عن السعر.",
   "similar_perfumes_title": "عطور مشابهة قد تعجبك",
   "wishlist_added": "أضيف للمفضلة ♥",
   "wishlist_add": "أضف للمفضلة ♡",
