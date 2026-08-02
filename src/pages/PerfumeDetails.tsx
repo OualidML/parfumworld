@@ -293,7 +293,7 @@ export default function PerfumeDetails() {
               {perfume.is_dupe_of && (
                 <div className="inline-flex self-start items-center gap-2 border border-gold-500/30 bg-gold-500/5 rounded-xl px-4 py-1.5 text-xs text-gold-400 font-semibold my-1 shadow-sm">
                   <Tag className="h-3.5 w-3.5 animate-pulse" />
-                  <span>{t('inspired_by_label', { perfume: perfume.is_dupe_of })}</span>
+                  <span>{t('dupe_badge_text', { perfume: perfume.is_dupe_of })}</span>
                 </div>
               )}
             </div>
@@ -482,6 +482,11 @@ export default function PerfumeDetails() {
                       <h4 className="text-sm font-bold text-white group-hover:text-gold-400 transition-colors leading-tight">
                         {p.name}
                       </h4>
+                      {p.is_dupe_of && (
+                        <span className="inline-flex items-center text-[9px] font-bold text-gold-400/80 bg-gold-500/5 border border-gold-500/10 rounded px-1.5 py-0.5 mt-1.5">
+                          {t('dupe_badge_text', { perfume: p.is_dupe_of })}
+                        </span>
+                      )}
                     </div>
 
                     <div className="border-t border-white/5 pt-2 flex justify-between items-center text-[10px] font-medium font-mono text-neutral-400">

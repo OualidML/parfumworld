@@ -20,7 +20,8 @@ import {
   Heart, 
   Loader2, 
   HelpCircle,
-  TrendingUp
+  TrendingUp,
+  Ban
 } from 'lucide-react'
 
 // Lucide icon mapping based on database icon_name field
@@ -53,11 +54,48 @@ export default function NotePicker() {
   // Interaction states
   const [selectedTab, setSelectedTab] = useState<string>('')
   const [selectedNotes, setSelectedNotes] = useState<Note[]>([])
+  const [excludedNotes, setExcludedNotes] = useState<Note[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
   
   const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  // Quiz States
+  const [quizOpen, setQuizOpen] = useState(false)
+  const [quizStep, setQuizStep] = useState(0)
+  const [quizAnswers, setQuizAnswers] = useState<string[]>([])
+
+  const quizQuestions = [
+    {
+      question: t('quiz_q1_title'),
+      options: [
+        { text: t('quiz_q1_o1'), val: 'fresh' },
+        { text: t('quiz_q1_o2'), val: 'warm' }
+      ]
+    },
+    {
+      question: t('quiz_q2_title'),
+      options: [
+        { text: t('quiz_q2_o1'), val: 'sweet' },
+        { text: t('quiz_q2_o2'), val: 'dry' }
+      ]
+    },
+    {
+      question: t('quiz_q3_title'),
+      options: [
+        { text: t('quiz_q3_o1'), val: 'day' },
+        { text: t('quiz_q3_o2'), val: 'night' }
+      ]
+    },
+    {
+      question: t('quiz_q4_title'),
+      options: [
+        { text: t('quiz_q4_o1'), val: 'subtle' },
+        { text: t('quiz_q4_o2'), val: 'bold' }
+      ]
+    }
+  ]
 
   // 1. Fetch categories and notes on mount
   useEffect(() => {
@@ -151,6 +189,20 @@ export default function NotePicker() {
       if (exists) {
         return prev.filter(n => n.id !== note.id)
       } else {
+        setExcludedNotes(ex => ex.filter(n => n.id !== note.id))
+        return [...prev, note]
+      }
+    })
+  }
+
+  // Toggle exclusion state of a note card
+  const toggleExclude = (note: Note) => {
+    setExcludedNotes(prev => {
+      const exists = prev.some(n => n.id === note.id)
+      if (exists) {
+        return prev.filter(n => n.id !== note.id)
+      } else {
+        setSelectedNotes(s => s.filter(n => n.id !== note.id))
         return [...prev, note]
       }
     })
@@ -159,13 +211,47 @@ export default function NotePicker() {
   // Clear all selections
   const handleClearAll = () => {
     setSelectedNotes([])
+    setExcludedNotes([])
   }
 
   // Navigate to results screen passing selected note IDs as params
   const handleShowResults = () => {
     if (selectedNotes.length === 0) return
     const ids = selectedNotes.map(n => n.id).join(',')
-    navigate(`/results?notes=${ids}`)
+    const exIds = excludedNotes.map(n => n.id).join(',')
+    navigate(`/results?notes=${ids}${exIds ? `&exclude=${exIds}` : ''}`)
+  }
+
+  // Quiz finish handler
+  const handleFinishQuiz = (answers: string[]) => {
+    const vibe = answers[0]
+    const profile = answers[1]
+    const time = answers[2]
+    const intensity = answers[3]
+
+    const scoredNotes = notes.map(note => {
+      const cat = categories.find(c => c.id === note.category_id)
+      const family = cat ? cat.family.toLowerCase() : ''
+      
+      let score = 0
+      if (vibe === 'fresh' && ['citrus', 'fresh', 'floral'].includes(family)) score += 1
+      if (vibe === 'warm' && ['woody', 'oriental', 'leather', 'gourmand'].includes(family)) score += 1
+      if (profile === 'sweet' && ['gourmand', 'floral'].includes(family)) score += 1
+      if (profile === 'dry' && ['woody', 'leather', 'oriental'].includes(family)) score += 1
+      if (time === 'day' && ['citrus', 'fresh', 'musk', 'floral'].includes(family)) score += 1
+      if (time === 'night' && ['woody', 'leather', 'oriental', 'gourmand'].includes(family)) score += 1
+      if (intensity === 'subtle' && ['citrus', 'fresh', 'musk'].includes(family)) score += 1
+      if (intensity === 'bold' && ['leather', 'oriental', 'woody'].includes(family)) score += 1
+      
+      return { note, score }
+    })
+
+    const sorted = scoredNotes.sort((a, b) => b.score - a.score)
+    const topNotes = sorted.slice(0, 4).map(item => item.note)
+
+    setSelectedNotes(topNotes)
+    setExcludedNotes([])
+    setQuizOpen(false)
   }
 
   // Filter notes belonging to the selected tab
@@ -272,26 +358,37 @@ export default function NotePicker() {
             )}
           </div>
 
-          {/* Language Switcher */}
-          <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-1 shadow-md">
-            <Globe className="h-3.5 w-3.5 text-gold-400/80 mx-1.5" />
-            {[
-              { code: 'ar', label: t('arabic') },
-              { code: 'fr', label: t('french') },
-              { code: 'en', label: t('english') }
-            ].map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => changeLanguage(lang.code)}
-                className={`px-3 py-1 rounded-full text-[10px] font-semibold transition-all duration-300 ${
-                  currentLanguage.startsWith(lang.code)
-                    ? 'bg-gradient-to-r from-gold-500 to-burgundy-500 text-neutral-950 font-extrabold shadow-sm'
-                    : 'text-neutral-300 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {lang.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3">
+            {/* Wishlist Navigation Portal */}
+            <button
+              onClick={() => navigate('/wishlist')}
+              className="flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+            >
+              <Heart className="h-3.5 w-3.5 fill-burgundy-500 text-burgundy-500" />
+              <span>{t('wishlist_title')}</span>
+            </button>
+
+            {/* Language Switcher */}
+            <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-1 shadow-md">
+              <Globe className="h-3.5 w-3.5 text-gold-400/80 mx-1.5" />
+              {[
+                { code: 'ar', label: t('arabic') },
+                { code: 'fr', label: t('french') },
+                { code: 'en', label: t('english') }
+              ].map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => changeLanguage(lang.code)}
+                  className={`px-3 py-1 rounded-full text-[10px] font-semibold transition-all duration-300 ${
+                    currentLanguage.startsWith(lang.code)
+                      ? 'bg-gradient-to-r from-gold-500 to-burgundy-500 text-neutral-950 font-extrabold shadow-sm'
+                      : 'text-neutral-300 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
           </div>
 
         </div>
@@ -322,12 +419,24 @@ export default function NotePicker() {
         {!loading && !error && (
           <>
             {/* 1. Category Tabs Scroller */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 text-start">
               <div className="flex items-center justify-between border-b border-white/5 pb-2">
                 <h2 className="text-xs text-gold-400 uppercase tracking-widest font-semibold flex items-center gap-1.5">
                   <TrendingUp className="h-3.5 w-3.5 text-gold-500" />
                   {t('olfactive_families')}
                 </h2>
+                
+                {/* Scent Quiz trigger button */}
+                <button
+                  onClick={() => {
+                    setQuizStep(0)
+                    setQuizAnswers([])
+                    setQuizOpen(true)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gold-500/10 border border-gold-500/20 text-gold-400 hover:text-white hover:bg-gold-500/20 transition-all text-xs font-bold cursor-pointer"
+                >
+                  <span>{t('quiz_start_button')}</span>
+                </button>
               </div>
 
               {/* Tabs Scroll Container */}
@@ -359,13 +468,16 @@ export default function NotePicker() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
                 {activeTabNotes.map((note) => {
                   const isSelected = selectedNotes.some(n => n.id === note.id)
+                  const isExcluded = excludedNotes.some(n => n.id === note.id)
                   return (
-                    <button
+                    <div
                       key={note.id}
                       onClick={() => toggleNote(note)}
                       className={`group p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between items-start text-start gap-4 cursor-pointer min-h-[110px] ${
                         isSelected
                           ? 'bg-burgundy-950 border-gold-500 text-gold-400 shadow-lg shadow-gold-500/5'
+                          : isExcluded
+                          ? 'bg-red-950/20 border-red-500/30 text-red-400 shadow-lg shadow-red-500/5'
                           : 'bg-neutral-900/30 border-white/10 text-neutral-300 hover:bg-neutral-900/60 hover:border-white/20'
                       }`}
                     >
@@ -374,21 +486,48 @@ export default function NotePicker() {
                         <span className="text-sm font-bold tracking-wide leading-tight group-hover:text-white transition-colors">
                           {getLocalizedName(note)}
                         </span>
-                        {isSelected ? (
-                          <div className="h-5 w-5 rounded-full bg-gold-500 flex items-center justify-center text-neutral-950 shadow-md shrink-0">
-                            <Check className="h-3.5 w-3.5 stroke-[3.5]" />
-                          </div>
-                        ) : (
-                          <div className="h-5 w-5 rounded-full border border-white/10 group-hover:border-white/30 transition-colors shrink-0" />
-                        )}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Exclude Ban Icon */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleExclude(note)
+                            }}
+                            title={t('exclude_note_action')}
+                            className={`h-5 w-5 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
+                              isExcluded
+                                ? 'bg-red-500 border-red-500 text-white'
+                                : 'border-white/10 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-500 hover:text-red-400'
+                            }`}
+                          >
+                            <Ban className="h-2.5 w-2.5" />
+                          </button>
+                          
+                          {/* Include Checkbox Icon */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleNote(note)
+                            }}
+                            className={`h-5 w-5 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-gold-500 border-gold-500 text-neutral-950 shadow-md shadow-gold-500/10'
+                                : 'border-white/10 hover:border-gold-500/50 hover:bg-gold-500/10 text-neutral-500 hover:text-gold-400'
+                            }`}
+                          >
+                            {isSelected ? <Check className="h-2.5 w-2.5 stroke-[3.5]" /> : <div className="h-1.5 w-1.5 rounded-full bg-transparent" />}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Note Description Footer */}
                       <div className="w-full text-start">
                         <span className={`text-[9px] uppercase tracking-wider font-semibold block ${
-                          isSelected ? 'text-gold-400/80' : 'text-neutral-400'
+                          isSelected ? 'text-gold-400/80' : isExcluded ? 'text-red-400/80' : 'text-neutral-400'
                         }`}>
-                          {t('layer_' + note.layer)}
+                          {isExcluded ? t('excluded_note_badge') : t('layer_' + note.layer)}
                         </span>
                         {note.description_ar && currentLanguage === 'ar' && (
                           <p className="text-[10px] text-neutral-400 mt-1 line-clamp-1 leading-snug font-light">
@@ -397,7 +536,7 @@ export default function NotePicker() {
                         )}
                       </div>
 
-                    </button>
+                    </div>
                   )
                 })}
               </div>
@@ -414,11 +553,18 @@ export default function NotePicker() {
           {/* Selected Notes Tracker */}
           <div className="w-full md:w-auto flex flex-col gap-2">
             <div className="flex items-center justify-between md:justify-start gap-3">
-              <span className="text-sm font-serif font-bold text-white flex items-center gap-1.5">
-                <Heart className="h-4 w-4 fill-burgundy-500 text-burgundy-500" />
-                {getSelectedNotesLabel()}
-              </span>
-              {selectedNotes.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-serif font-bold text-white flex items-center gap-1.5">
+                  <Heart className="h-4 w-4 fill-burgundy-500 text-burgundy-500" />
+                  {getSelectedNotesLabel()}
+                </span>
+                {excludedNotes.length > 0 && (
+                  <span className="text-[10px] font-bold bg-red-500/15 border border-red-500/30 text-red-400 px-2 py-0.5 rounded-full">
+                    {t('excluded_notes_count', { count: excludedNotes.length })}
+                  </span>
+                )}
+              </div>
+              {(selectedNotes.length > 0 || excludedNotes.length > 0) && (
                 <button
                   onClick={handleClearAll}
                   className="text-xs text-neutral-400 hover:text-red-400 font-semibold px-2 py-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
@@ -429,7 +575,7 @@ export default function NotePicker() {
             </div>
 
             {/* Scrollable list of active chips */}
-            {selectedNotes.length > 0 ? (
+            {(selectedNotes.length > 0 || excludedNotes.length > 0) ? (
               <div className="flex items-center gap-1.5 overflow-x-auto py-1 max-w-lg scrollbar-none">
                 {selectedNotes.map((note) => (
                   <div
@@ -438,8 +584,26 @@ export default function NotePicker() {
                   >
                     <span>{getLocalizedName(note)}</span>
                     <button
+                      type="button"
                       onClick={() => toggleNote(note)}
                       className="h-4.5 w-4.5 rounded-full hover:bg-white/10 flex items-center justify-center text-gold-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+
+                {excludedNotes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="flex items-center gap-1.5 bg-red-950/75 border border-red-500/25 text-red-400 rounded-full ps-2 pe-1 py-1 shrink-0 text-[10px] font-bold"
+                  >
+                    <Ban className="h-2.5 w-2.5" />
+                    <span>{getLocalizedName(note)}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleExclude(note)}
+                      className="h-4.5 w-4.5 rounded-full hover:bg-white/10 flex items-center justify-center text-red-400 hover:text-white transition-colors cursor-pointer"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -450,10 +614,11 @@ export default function NotePicker() {
           </div>
 
           {/* Trigger matching results OR Empty State UI */}
-          {selectedNotes.length > 0 ? (
+          {(selectedNotes.length > 0 || excludedNotes.length > 0) ? (
             <button
               onClick={handleShowResults}
-              className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-bold text-sm shadow-xl shadow-gold-500/10 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer"
+              disabled={selectedNotes.length === 0}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 disabled:from-neutral-800 disabled:to-neutral-800 disabled:text-neutral-500 text-neutral-950 font-bold text-sm shadow-xl shadow-gold-500/10 hover:scale-[1.02] active:scale-[0.98] disabled:scale-100 transition-all duration-300 cursor-pointer disabled:cursor-not-allowed"
             >
               <span>{t('show_results')}</span>
             </button>
@@ -469,6 +634,83 @@ export default function NotePicker() {
 
         </div>
       </footer>
+
+      {/* 3. SCENT QUIZ MODAL OVERLAY */}
+      {quizOpen && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-white/10 rounded-3xl w-full max-w-lg shadow-2xl p-6 md:p-8 flex flex-col gap-6 text-start font-sans">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4.5 w-4.5 text-gold-400 animate-pulse" />
+                <h3 className="font-serif text-base font-bold text-white">
+                  {t('quiz_modal_title')}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setQuizOpen(false)} 
+                className="p-1 rounded-full hover:bg-white/5 text-neutral-400 hover:text-white transition-colors cursor-pointer animate-none"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Quiz Progress dots */}
+            <div className="flex justify-between items-center">
+              <div className="flex gap-1.5">
+                {[0, 1, 2, 3].map((step) => (
+                  <div 
+                    key={step} 
+                    className={`h-1.5 rounded-full transition-all ${
+                      quizStep === step 
+                        ? 'w-6 bg-gold-500' 
+                        : quizStep > step 
+                        ? 'w-2 bg-burgundy-500' 
+                        : 'w-2 bg-neutral-800'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] text-neutral-400 font-mono">
+                Step {quizStep + 1} of 4
+              </span>
+            </div>
+
+            {/* Question card */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-bold text-white leading-relaxed">
+                {quizQuestions[quizStep].question}
+              </h4>
+
+              <div className="flex flex-col gap-3">
+                {quizQuestions[quizStep].options.map((opt) => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => {
+                      const nextAnswers = [...quizAnswers]
+                      nextAnswers[quizStep] = opt.val
+                      setQuizAnswers(nextAnswers)
+                      
+                      if (quizStep < 3) {
+                        setQuizStep(prev => prev + 1)
+                      } else {
+                        handleFinishQuiz(nextAnswers)
+                      }
+                    }}
+                    className="w-full p-4 rounded-2xl bg-neutral-950 border border-white/5 hover:border-gold-500/40 hover:bg-burgundy-950/15 text-start transition-all cursor-pointer text-xs font-semibold text-neutral-300 hover:text-white group flex justify-between items-center"
+                  >
+                    <span>{opt.text}</span>
+                    <div className="h-4 w-4 rounded-full border border-white/10 group-hover:border-gold-500/50 transition-colors" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   )

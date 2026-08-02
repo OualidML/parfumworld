@@ -4,6 +4,7 @@ import Results from './pages/Results'
 import PerfumeDetails from './pages/PerfumeDetails'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import WishlistPage from './pages/WishlistPage'
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <Route path="/perfume/:id" element={<PerfumeDetails />} />
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminDashboard />} />
+      <Route path="/wishlist" element={<WishlistPage />} />
     </Routes>
   )
 }
