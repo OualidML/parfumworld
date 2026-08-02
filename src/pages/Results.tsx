@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import type { Note } from '../types/database'
@@ -312,8 +312,9 @@ export default function Results() {
                 {filteredPerfumes.map((perfume) => {
                   const isFullMatch = Number(perfume.match_score) >= 100.0
                   return (
-                    <div 
+                    <Link 
                       key={perfume.id}
+                      to={`/perfume/${perfume.id}`}
                       className="group bg-neutral-900/30 border border-white/5 hover:border-gold-500/25 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between"
                     >
                       {/* Image container & Match Badge */}
@@ -424,7 +425,7 @@ export default function Results() {
                         </div>
                       </div>
 
-                    </div>
+                    </Link>
                   )
                 })}
               </div>

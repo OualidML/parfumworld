@@ -16,5 +16,32 @@
   "results_title": "Your Perfume Matches",
   "results_desc": "Perfumes that match your selected scent notes.",
   "back_to_picker": "Back to Note Selection",
-  "selected_ids": "Selected Note IDs:"
+  "selected_ids": "Selected Note IDs:",
+  "full_match": "Full Match ✨",
+  "match_percentage": "{{percentage}}% Match",
+  "dupe_overlay_text": "Dupe of {{perfume}}",
+  "filters_header": "Refine Results",
+  "gender_label": "Gender",
+  "gender_options": {
+    "male": "Men",
+    "female": "Women",
+    "unisex": "Unisex"
+  },
+  "price_max_filter": "Max Price: ${{price}}",
+  "concentration_label": "Concentration",
+  "in_stock_only": "In Stock Only",
+  "results_empty_state": "No perfumes found matching your selected scent notes.",
+  "suggest_note_prompt": "Suggestion to broaden your search:",
+  "remove_note_action": "Remove note \"{{note}}\" and update results",
+  "scent_pyramid_header": "Fragrance Pyramid",
+  "scent_pyramid_top": "Top Notes (Opening)",
+  "scent_pyramid_middle": "Heart Notes (Middle)",
+  "scent_pyramid_base": "Base Notes (Dry Down)",
+  "inspired_by_label": "Inspired by: {{perfume}}",
+  "order_via_whatsapp": "Order via WhatsApp 💬",
+  "whatsapp_message": "Hello, I would like to order the perfume {{name}} in {{volume}}ml size for ${{price}}.",
+  "similar_perfumes_title": "Similar Perfumes You May Like",
+  "wishlist_added": "Added to Wishlist ♥",
+  "wishlist_add": "Add to Wishlist ♡",
+  "perfume_details_title": "Perfume Details"
 }
