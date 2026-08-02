@@ -4,5 +4,17 @@
   "select_language": "Choisir la langue",
   "arabic": "Arabe",
   "french": "Français",
-  "english": "Anglais"
+  "english": "Anglais",
+  "search_placeholder": "Rechercher une note (ex: Jasmin, Santal...)",
+  "no_search_results": "Aucune note correspondante trouvée.",
+  "empty_state_title": "Commencez Votre Voyage Olfactif",
+  "empty_state_desc": "Vous n'avez sélectionné aucune note. Choisissez des notes ci-dessus pour composer votre profil de parfum personnalisé !",
+  "selected_notes_count_one": "1 note sélectionnée",
+  "selected_notes_count_other": "{{count}} notes sélectionnées",
+  "show_results": "Afficher les Résultats ⚡️",
+  "clear_all": "Tout Effacer",
+  "results_title": "Vos Parfums Correspondants",
+  "results_desc": "Les parfums qui correspondent à vos notes sélectionnées.",
+  "back_to_picker": "Retour à la Sélection des Notes",
+  "selected_ids": "IDs des notes sélectionnées :"
 }

@@ -4,5 +4,17 @@
   "select_language": "Select Language",
   "arabic": "Arabic",
   "french": "French",
-  "english": "English"
+  "english": "English",
+  "search_placeholder": "Search for a scent note (e.g. Jasmine, Sandalwood...)",
+  "no_search_results": "No matching notes found.",
+  "empty_state_title": "Begin Your Olfactory Journey",
+  "empty_state_desc": "You haven't selected any notes yet. Choose some notes above to start creating your custom fragrance profile!",
+  "selected_notes_count_one": "1 note selected",
+  "selected_notes_count_other": "{{count}} notes selected",
+  "show_results": "Show Results ⚡️",
+  "clear_all": "Clear All",
+  "results_title": "Your Perfume Matches",
+  "results_desc": "Perfumes that match your selected scent notes.",
+  "back_to_picker": "Back to Note Selection",
+  "selected_ids": "Selected Note IDs:"
 }

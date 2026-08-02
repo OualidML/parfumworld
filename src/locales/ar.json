@@ -4,5 +4,20 @@
   "select_language": "اختر اللغة",
   "arabic": "العربية",
   "french": "الفرنسية",
-  "english": "الإنجليزية"
+  "english": "الإنجليزية",
+  "search_placeholder": "ابحث عن نوتة عطرية (مثال: ياسمين، صندل...)",
+  "no_search_results": "لا توجد نتائج مطابقة لبحثك.",
+  "empty_state_title": "ابدأ تركيبتك العطرية",
+  "empty_state_desc": "لم تقم باختيار أي نوتة بعد. اختر بعض النوتات في الأعلى لبدء تركيبتك العطرية المخصصة!",
+  "selected_notes_count_one": "نوتة واحدة مختارة",
+  "selected_notes_count_two": "نوتتان مختارتان",
+  "selected_notes_count_few": "{{count}} نوتات مختارة",
+  "selected_notes_count_many": "{{count}} نوتة مختارة",
+  "selected_notes_count_other": "{{count}} نوتة مختارة",
+  "show_results": "أظهر النتائج ⚡️",
+  "clear_all": "مسح الكل",
+  "results_title": "عطورك المقترحة",
+  "results_desc": "العطور التي تطابق خياراتك من النوتات العطرية.",
+  "back_to_picker": "العودة لاختيار النوتات",
+  "selected_ids": "معرفات النوتات المختارة:"
 }
