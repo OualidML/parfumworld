@@ -21,7 +21,8 @@ import {
   Loader2, 
   HelpCircle,
   TrendingUp,
-  Ban
+  Ban,
+  MapPin
 } from 'lucide-react'
 
 // Lucide icon mapping based on database icon_name field
@@ -60,6 +61,13 @@ export default function NotePicker() {
   const [showSearchResults, setShowSearchResults] = useState(false)
   
   const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  // Store settings state
+  const [storeSettings, setStoreSettings] = useState({
+    name: 'ParfumWorld',
+    slogan: 'Premium Scents Explorer',
+    mapsLink: ''
+  })
 
   // Quiz States
   const [quizOpen, setQuizOpen] = useState(false)
@@ -117,6 +125,23 @@ export default function NotePicker() {
         setCategories(catData || [])
         setNotes(notesData || [])
         
+        // Fetch General Settings
+        const { data: settingsData } = await supabase
+          .from('store_settings')
+          .select('key, value')
+
+        if (settingsData) {
+          const nameVal = settingsData.find(s => s.key === 'store_name')?.value
+          const sloganVal = settingsData.find(s => s.key === 'store_slogan')?.value
+          const mapsVal = settingsData.find(s => s.key === 'google_maps_link')?.value
+          
+          setStoreSettings({
+            name: nameVal || 'ParfumWorld',
+            slogan: sloganVal || 'Premium Scents Explorer',
+            mapsLink: mapsVal || ''
+          })
+        }
+
         // Default select first tab if categories exist
         if (catData && catData.length > 0) {
           setSelectedTab(catData[0].id)
@@ -287,10 +312,10 @@ export default function NotePicker() {
             </div>
             <div>
               <span className="font-serif text-2xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 via-gold-200 to-gold-400 block leading-none">
-                ParfumWorld
+                {storeSettings.name}
               </span>
               <span className="text-[10px] text-neutral-400 mt-1 tracking-wider uppercase block font-light">
-                Premium Scents Explorer
+                {storeSettings.slogan}
               </span>
             </div>
           </div>
@@ -359,6 +384,19 @@ export default function NotePicker() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Visit Store Location Link */}
+            {storeSettings.mapsLink && (
+              <a
+                href={storeSettings.mapsLink}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+              >
+                <MapPin className="h-3.5 w-3.5 text-gold-500" />
+                <span className="hidden sm:inline">Location</span>
+              </a>
+            )}
+
             {/* Wishlist Navigation Portal */}
             <button
               onClick={() => navigate('/wishlist')}

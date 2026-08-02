@@ -76,6 +76,7 @@ export default function Results() {
   // Comparison State
   const [comparedPerfumeIds, setComparedPerfumeIds] = useState<string[]>([])
   const [compareModalOpen, setCompareModalOpen] = useState(false)
+  const [storeName, setStoreName] = useState('ParfumWorld')
 
   const toggleCompare = (id: string) => {
     setComparedPerfumeIds(prev => {
@@ -127,6 +128,17 @@ export default function Results() {
 
         setPerfumes(matchedData || [])
         setNotes(notesData || [])
+
+        // Fetch Store Name
+        const { data: settingsData } = await supabase
+          .from('store_settings')
+          .select('value')
+          .eq('key', 'store_name')
+          .maybeSingle()
+
+        if (settingsData && settingsData.value) {
+          setStoreName(settingsData.value)
+        }
 
         // Set max price slider dynamically based on results
         if (matchedData && matchedData.length > 0) {
@@ -234,7 +246,7 @@ export default function Results() {
               <Sparkles className="h-4 w-4 text-neutral-900" />
             </div>
             <span className="font-serif text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 to-gold-400">
-              ParfumWorld
+              {storeName}
             </span>
           </div>
 

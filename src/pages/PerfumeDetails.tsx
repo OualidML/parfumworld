@@ -64,6 +64,7 @@ export default function PerfumeDetails() {
   const [perfume, setPerfume] = useState<PerfumeDetailsType | null>(null)
   const [noteMappings, setNoteMappings] = useState<PerfumeNoteMapping[]>([])
   const [whatsappNumber, setWhatsappNumber] = useState<string>('+212600000000')
+  const [storeName, setStoreName] = useState<string>('ParfumWorld')
   const [similarPerfumes, setSimilarPerfumes] = useState<PerfumeDetailsType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -96,12 +97,10 @@ export default function PerfumeDetails() {
 
         if (mappingErr) throw mappingErr
 
-        // Fetch WhatsApp contact phone setting
-        const { data: settingData } = await supabase
+        // Fetch Store Settings
+        const { data: settingsData } = await supabase
           .from('store_settings')
-          .select('value')
-          .eq('key', 'whatsapp_number')
-          .single()
+          .select('key, value')
 
         // Fetch similar perfumes belonging to the same scent family
         const { data: similarData } = await supabase
@@ -117,8 +116,11 @@ export default function PerfumeDetails() {
           notes: Array.isArray(m.notes) ? m.notes[0] : m.notes
         }))
         setNoteMappings(formattedMappings)
-        if (settingData?.value) {
-          setWhatsappNumber(settingData.value)
+        if (settingsData) {
+          const waVal = settingsData.find(s => s.key === 'whatsapp_number')?.value
+          const nameVal = settingsData.find(s => s.key === 'store_name')?.value
+          if (waVal) setWhatsappNumber(waVal)
+          if (nameVal) setStoreName(nameVal)
         }
         setSimilarPerfumes(similarData || [])
 
@@ -220,7 +222,7 @@ export default function PerfumeDetails() {
               <Sparkles className="h-4 w-4 text-neutral-900" />
             </div>
             <span className="font-serif text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 to-gold-400">
-              ParfumWorld
+              {storeName}
             </span>
           </div>
 

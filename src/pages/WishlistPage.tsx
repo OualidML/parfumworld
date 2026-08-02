@@ -41,6 +41,7 @@ export default function WishlistPage() {
   // Perfumes catalog state
   const [perfumes, setPerfumes] = useState<Perfume[]>([])
   const [loading, setLoading] = useState(true)
+  const [storeName, setStoreName] = useState('ParfumWorld')
 
   // Auth States
   const [sessionUser, setSessionUser] = useState<any>(null)
@@ -72,6 +73,17 @@ export default function WishlistPage() {
         .select('*, brands(*)')
       if (error) throw error
       setPerfumes(data || [])
+
+      // Fetch Store Name
+      const { data: settingsData } = await supabase
+        .from('store_settings')
+        .select('value')
+        .eq('key', 'store_name')
+        .maybeSingle()
+
+      if (settingsData && settingsData.value) {
+        setStoreName(settingsData.value)
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -138,7 +150,7 @@ export default function WishlistPage() {
               <Sparkles className="h-4 w-4 text-neutral-900" />
             </div>
             <span className="font-serif text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 to-gold-400">
-              ParfumWorld
+              {storeName}
             </span>
           </div>
 
