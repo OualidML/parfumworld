@@ -20,7 +20,8 @@ import {
   X,
   LogOut,
   Sun,
-  Moon
+  Moon,
+  MessageSquare
 } from 'lucide-react'
 
 interface MatchedPerfume {
@@ -80,6 +81,7 @@ export default function Results() {
   const [comparedPerfumeIds, setComparedPerfumeIds] = useState<string[]>([])
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [storeName, setStoreName] = useState('ParfumWorld')
+  const [whatsappNumber, setWhatsappNumber] = useState('+212600000000')
   const [sessionUser, setSessionUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
 
@@ -153,15 +155,16 @@ export default function Results() {
         setPerfumes(matchedData || [])
         setNotes(notesData || [])
 
-        // Fetch Store Name
+        // Fetch Store Settings
         const { data: settingsData } = await supabase
           .from('store_settings')
-          .select('value')
-          .eq('key', 'store_name')
-          .maybeSingle()
+          .select('key, value')
 
-        if (settingsData && settingsData.value) {
-          setStoreName(settingsData.value)
+        if (settingsData) {
+          const nameVal = settingsData.find(s => s.key === 'store_name')?.value
+          const waVal = settingsData.find(s => s.key === 'whatsapp_number')?.value
+          if (nameVal) setStoreName(nameVal)
+          if (waVal) setWhatsappNumber(waVal)
         }
       } catch (err: any) {
         console.error('Error fetching matching results:', err)
@@ -449,8 +452,78 @@ export default function Results() {
             )}
 
             {/* Matching Result Cards List */}
-            {filteredPerfumes.length > 0 ? (
+            {(filteredPerfumes.length > 0 || selectedNoteIds.length > 0) ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                {/* 1. Dynamic Bespoke Custom Blend Card */}
+                {selectedNoteIds.length > 0 && (
+                  <div className="group bg-gradient-to-br from-burgundy-950/20 via-neutral-950 to-neutral-900/20 border border-gold-500/40 hover:border-gold-500 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between relative cursor-default min-h-[350px] p-0.5">
+                    
+                    {/* Top visual graphic area */}
+                    <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-neutral-950 to-neutral-900 flex flex-col items-center justify-center text-center p-6 border-b border-gold-500/10">
+                      <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-gold-500 to-burgundy-500 flex items-center justify-center shadow-lg shadow-gold-500/20 animate-pulse mb-3 z-10">
+                        <Sparkles className="h-6 w-6 text-neutral-900" />
+                      </div>
+                      <span className="text-[10px] uppercase tracking-widest text-gold-400 font-extrabold z-10">
+                        {isRtl ? 'تركيبة مخصصة' : 'Bespoke Fragrance'}
+                      </span>
+                      <h3 className="font-serif text-base font-black text-white mt-1.5 z-10">
+                        {isRtl ? 'تركيبتك الخاصة المبتكرة' : 'Your Custom Scent Blend'}
+                      </h3>
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent pointer-events-none z-0" />
+                    </div>
+
+                    {/* Content details */}
+                    <div className="p-6 flex-1 flex flex-col justify-between gap-5 text-start">
+                      <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center text-[10px] uppercase tracking-wider font-bold">
+                          <span className="text-gold-500">
+                            {isRtl ? 'المكونات المحددة لك' : 'Your Selected Scent Profile'}
+                          </span>
+                        </div>
+                        
+                        {/* Notes list chips */}
+                        <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto pr-1">
+                          {notes
+                            .filter(n => selectedNoteIds.includes(n.id))
+                            .map((note) => (
+                              <span 
+                                key={note.id}
+                                className="px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-[9px] font-semibold text-gold-400"
+                              >
+                                {getLocalizedName(note)}
+                              </span>
+                            ))}
+                        </div>
+
+                        <p className="text-xs text-neutral-400 leading-relaxed mt-1 font-light">
+                          {isRtl 
+                            ? 'عطر فريد ومميز يقوم خبير العطور لدينا بتركيبه وخلطه فورياً في المحل بنسب دقيقة جداً ومخصصة لك بناءً على اختيارك.' 
+                            : 'A unique bespoke perfume blended on-demand in our boutique, custom-crafted based on your exact note selection.'}
+                        </p>
+                      </div>
+
+                      {/* WhatsApp order action */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const selectedNotesObj = notes.filter(n => selectedNoteIds.includes(n.id))
+                          const notesStr = selectedNotesObj.map(n => getLocalizedName(n)).join(', ')
+                          const messageText = isRtl
+                            ? `مرحباً، أود طلب تركيب عطري الخاص بالمكونات التالية: ${notesStr}، والاستفسار عن السعر.`
+                            : `Hello, I would like to order a bespoke custom blend with the following notes: ${notesStr}, and ask about the price.`
+                          const encodedText = encodeURIComponent(messageText)
+                          window.open(`https://wa.me/${whatsappNumber.replace('+', '')}?text=${encodedText}`, '_blank')
+                        }}
+                        className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02]"
+                      >
+                        <MessageSquare className="h-4 w-4 text-neutral-950" />
+                        <span>{isRtl ? 'اطلب تركيبتك الخاصة الآن' : 'Pre-order Custom Blend'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {filteredPerfumes.map((perfume) => {
                   const isFullMatch = Number(perfume.match_score) >= 100.0
                   return (
