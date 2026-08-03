@@ -15,7 +15,9 @@ import {
   MessageSquare,
   Volume2,
   Compass,
-  LogOut
+  LogOut,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 interface PerfumeDetailsType {
@@ -68,6 +70,27 @@ export default function PerfumeDetails() {
   const [storeName, setStoreName] = useState<string>('ParfumWorld')
   const [sessionUser, setSessionUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  // Theme State
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  )
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light')
+      document.documentElement.classList.remove('dark')
+    } else {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  }
+
   const [similarPerfumes, setSimilarPerfumes] = useState<PerfumeDetailsType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -277,6 +300,19 @@ export default function PerfumeDetails() {
             >
               <Heart className="h-3.5 w-3.5 fill-burgundy-500 text-burgundy-500" />
               <span className="hidden sm:inline">{t('wishlist_title')}</span>
+            </button>
+
+            {/* Theme Toggler */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-neutral-300 hover:text-white transition-all cursor-pointer shadow-md flex items-center justify-center"
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-3.5 w-3.5 text-gold-400" />
+              ) : (
+                <Moon className="h-3.5 w-3.5 text-neutral-855" />
+              )}
             </button>
 
             {/* Auth Widget */}

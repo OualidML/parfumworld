@@ -4,8 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useWishlist } from '../hooks/useWishlist'
 import { supabase } from '../lib/supabase'
 import { 
-  Sparkles, ArrowLeft, Heart, Loader2, Mail, CheckCircle2, AlertCircle, LogOut,
-  Package, Award
+  Package, Award, Sun, Moon, Sparkles, ArrowLeft, Heart, Loader2, Mail, CheckCircle2, AlertCircle, LogOut
 } from 'lucide-react'
 
 interface Brand {
@@ -42,6 +41,26 @@ export default function WishlistPage() {
   const [perfumes, setPerfumes] = useState<Perfume[]>([])
   const [loading, setLoading] = useState(true)
   const [storeName, setStoreName] = useState('ParfumWorld')
+
+  // Theme State
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  )
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light')
+      document.documentElement.classList.remove('dark')
+    } else {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  }
 
   // Auth States
   const [sessionUser, setSessionUser] = useState<any>(null)
@@ -177,6 +196,19 @@ export default function WishlistPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Theme Toggler */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-neutral-300 hover:text-white transition-all cursor-pointer shadow-md flex items-center justify-center"
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-3.5 w-3.5 text-gold-400" />
+              ) : (
+                <Moon className="h-3.5 w-3.5 text-neutral-855" />
+              )}
+            </button>
+
             {/* Auth Widget */}
             {sessionUser ? (
               <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-0.5 shadow-md">

@@ -144,3 +144,205 @@
     @apply font-sans;
     }
 }
+
+/* ==========================================================================
+   Light Mode Theme CSS Overrides
+   ========================================================================== */
+html.light {
+    --background: oklch(0.985 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --border: rgba(0, 0, 0, 0.08);
+}
+
+.light {
+    /* Global Background Overrides */
+    .min-h-screen {
+        background: radial-gradient(ellipse at top, var(--color-cream-50), #fcfbf9, #ffffff) !important;
+        color: #1c1917 !important; /* text-stone-900 */
+    }
+
+    /* Typography */
+    h1, h2, h3, h4, h5, h6, 
+    .text-white, 
+    span.text-white,
+    header span,
+    .font-serif {
+        color: #1c1917 !important;
+    }
+
+    p, 
+    .text-neutral-300, 
+    .text-neutral-400,
+    span.text-neutral-300,
+    span.text-neutral-400 {
+        color: #44403c !important; /* text-stone-700 */
+    }
+
+    .text-neutral-500,
+    span.text-neutral-500 {
+        color: #78716c !important; /* text-stone-500 */
+    }
+
+    /* Header styling */
+    header {
+        background-color: rgba(255, 255, 255, 0.8) !important;
+        border-color: rgba(0, 0, 0, 0.08) !important;
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    header button, 
+    header a, 
+    header input,
+    header select {
+        color: #1c1917 !important;
+        border-color: rgba(0, 0, 0, 0.12) !important;
+    }
+
+    header button:hover, 
+    header a:hover {
+        background-color: rgba(0, 0, 0, 0.05) !important;
+        color: #000000 !important;
+    }
+
+    /* Search Input & Select boxes */
+    input[type="text"], 
+    select {
+        background-color: #ffffff !important;
+        border-color: rgba(0, 0, 0, 0.15) !important;
+        color: #1c1917 !important;
+    }
+
+    input[type="text"]::placeholder {
+        color: #a8a29e !important;
+    }
+
+    /* Cards */
+    .group.bg-neutral-900\/30, 
+    .group.bg-neutral-900\/20, 
+    .group.bg-neutral-900\/40,
+    .bg-neutral-900\/40,
+    .bg-neutral-900\/20,
+    .bg-neutral-900\/30,
+    .bg-neutral-950\/45,
+    .bg-white\/5,
+    .p-4.rounded-2xl {
+        background-color: #ffffff !important;
+        border-color: rgba(0, 0, 0, 0.08) !important;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04) !important;
+    }
+
+    .group:hover {
+        border-color: var(--color-gold-500) !important;
+        box-shadow: 0 10px 25px rgba(212, 175, 55, 0.15) !important;
+    }
+
+    /* Notes chips - general unselected */
+    .bg-neutral-900\/30.border-white\/10 {
+        background-color: #ffffff !important;
+        border-color: rgba(0, 0, 0, 0.1) !important;
+        color: #44403c !important;
+    }
+
+    .bg-neutral-900\/30.border-white\/10:hover {
+        background-color: rgba(0, 0, 0, 0.02) !important;
+        border-color: rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Selected notes */
+    .bg-burgundy-950.border-gold-500 {
+        background-color: #f7e8eb !important; /* burgundy-100 */
+        border-color: var(--color-burgundy-500) !important;
+        color: var(--color-burgundy-500) !important;
+    }
+
+    /* Excluded notes */
+    .bg-red-950\/20.border-red-500\/30 {
+        background-color: #fef2f2 !important; /* red-50 */
+        border-color: #f87171 !important;
+        color: #dc2626 !important;
+    }
+
+    /* Category active tab scroller outline overrides */
+    .bg-neutral-900\/60 {
+        background-color: rgba(0, 0, 0, 0.03) !important;
+        border-color: rgba(0, 0, 0, 0.08) !important;
+        color: #44403c !important;
+    }
+
+    .bg-neutral-900\/60:hover {
+        background-color: rgba(0, 0, 0, 0.06) !important;
+        color: #1c1917 !important;
+    }
+
+    /* Dynamic overlay backgrounds */
+    .bg-gradient-to-t.from-neutral-950 {
+        background-image: linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0)) !important;
+    }
+
+    /* Quiz Start triggers & custom panels */
+    .bg-gold-500\/10 {
+        background-color: rgba(212, 175, 55, 0.12) !important;
+        border-color: rgba(212, 175, 55, 0.25) !important;
+    }
+
+    /* Modal Backdrop Overlay */
+    .bg-black\/80 {
+        background-color: rgba(255, 255, 255, 0.75) !important;
+        backdrop-filter: blur(16px) !important;
+    }
+
+    .bg-neutral-900.border-white\/10 {
+        background-color: #ffffff !important;
+        border-color: rgba(0, 0, 0, 0.1) !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    }
+
+    /* Tabular grids & rows */
+    .divide-white\/5 > * {
+        border-color: rgba(0, 0, 0, 0.06) !important;
+    }
+    
+    .border-white\/5 {
+        border-color: rgba(0, 0, 0, 0.06) !important;
+    }
+
+    tr:hover td {
+        background-color: rgba(0, 0, 0, 0.01) !important;
+    }
+
+    /* Active indicator scores */
+    .bg-burgundy-750\/30 {
+        background-color: #f7e8eb !important;
+        color: var(--color-burgundy-500) !important;
+        border-color: var(--color-burgundy-200) !important;
+    }
+
+    .text-gold-450, .text-gold-400 {
+        color: #b45309 !important; /* dark amber for contrast */
+    }
+
+    /* Wishlist sync banners */
+    .bg-gradient-to-r.from-burgundy-950\/45 {
+        background-image: linear-gradient(to right, rgba(156, 44, 70, 0.05), rgba(255, 255, 255, 0.8)) !important;
+        border-color: rgba(156, 44, 70, 0.15) !important;
+    }
+
+    /* Scent Quiz visual options cards */
+    .bg-neutral-950\/40 {
+        background-color: rgba(0, 0, 0, 0.03) !important;
+        border-color: rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .bg-neutral-950\/40:hover {
+        background-color: rgba(212, 175, 55, 0.05) !important;
+        border-color: var(--color-gold-500) !important;
+    }
+
+    /* Checkboxes */
+    input[type="checkbox"] {
+        border-color: rgba(0, 0, 0, 0.2) !important;
+        background-color: #ffffff !important;
+    }
+}

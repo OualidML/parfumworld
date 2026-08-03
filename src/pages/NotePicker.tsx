@@ -23,7 +23,9 @@ import {
   TrendingUp,
   Ban,
   MapPin,
-  LogOut
+  LogOut,
+  Sun,
+  Moon
 } from 'lucide-react'
 
 // Lucide icon mapping based on database icon_name field
@@ -73,6 +75,26 @@ export default function NotePicker() {
   // Auth & Session States
   const [sessionUser, setSessionUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  // Theme State
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  )
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light')
+      document.documentElement.classList.remove('dark')
+    } else {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+    }
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  }
 
   // Quiz States
   const [quizOpen, setQuizOpen] = useState(false)
@@ -479,6 +501,19 @@ export default function NotePicker() {
               </button>
             )}
 
+            {/* Theme Toggler */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-neutral-300 hover:text-white transition-all cursor-pointer shadow-md flex items-center justify-center"
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-3.5 w-3.5 text-gold-400" />
+              ) : (
+                <Moon className="h-3.5 w-3.5 text-neutral-850" />
+              )}
+            </button>
+
             {/* Language Switcher */}
             <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-1 shadow-md">
               <Globe className="h-3.5 w-3.5 text-gold-400/80 mx-1.5" />
@@ -560,11 +595,11 @@ export default function NotePicker() {
                       onClick={() => setSelectedTab(category.id)}
                       className={`flex items-center gap-2.5 px-4.5 py-3 rounded-2xl text-sm font-semibold transition-all duration-300 cursor-pointer shrink-0 border ${
                         isActive
-                          ? 'bg-burgundy-750 border-gold-500/40 text-gold-400 shadow-lg shadow-burgundy-950/80 scale-[1.02]'
+                          ? 'bg-gradient-to-r from-gold-400 via-gold-500 to-gold-600 border-gold-300 text-neutral-950 font-extrabold shadow-lg shadow-gold-500/20 scale-[1.02]'
                           : 'bg-neutral-900/60 border-white/5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
                       }`}
                     >
-                      <span className={isActive ? 'text-gold-500' : 'text-neutral-400'}>
+                      <span className={isActive ? 'text-neutral-950 font-bold animate-pulse' : 'text-neutral-400'}>
                         {getCategoryIcon(category.icon_name)}
                       </span>
                       <span>{getLocalizedName(category)}</span>
