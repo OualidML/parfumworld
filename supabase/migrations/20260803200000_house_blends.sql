@@ -3,57 +3,57 @@ INSERT INTO brands (id, name) VALUES
 ('b0000000-0000-0000-0000-000000000000', 'House Blends / تركيبات حصرية')
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Insert House Blends perfumes
+-- 2. Insert House Blends perfumes (Using valid hexadecimal UUIDs)
 INSERT INTO perfumes (id, brand_id, name, gender, concentration, volume_ml, in_stock, description_ar, description_fr, description_en) VALUES
 -- Blend 1: Royal Amber Oud Rose
-('p9000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Royal Amber, Oud & Rose', 'unisex', 'parfum', 100, true, 'تركيبة شرقية ملكية دافئة تجمع بين فخامة العود والعنبر ونعومة الورد والزعفران، يتم تحضيرها وتركيبها فورياً في المحل.', 'Un mélange oriental royal associant l''oud précieux, l''ambre chaud, la rose et le safran.', 'A royal oriental custom blend combining precious oud, warm amber, elegant rose, and saffron. Blended fresh in-store.'),
+('90000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Royal Amber, Oud & Rose', 'unisex', 'parfum', 100, true, 'تركيبة شرقية ملكية دافئة تجمع بين فخامة العود والعنبر ونعومة الورد والزعفران، يتم تحضيرها وتركيبها فورياً في المحل.', 'Un mélange oriental royal associant l''oud précieux, l''ambre chaud, la rose et le safran.', 'A royal oriental custom blend combining precious oud, warm amber, elegant rose, and saffron. Blended fresh in-store.'),
 -- Blend 2: Fresh Ocean Breeze
-('p9000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Fresh Ocean Breeze', 'male', 'edp', 100, true, 'تركيبة بحرية منعشة للغاية تثير نسيم المحيط البارد مع رذاذ الليمون والنعناع والبرغموت، تركب وتخلط خصيصاً لك.', 'Un mélange aquatique rafraîchissant évoquant la brise marine avec du citron et de la menthe.', 'An ultra-fresh marine custom blend evoking sea breeze, lemon, cooling mint, and bergamot. Blended fresh in-store.'),
+('90000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Fresh Ocean Breeze', 'male', 'edp', 100, true, 'تركيبة بحرية منعشة للغاية تثير نسيم المحيط البارد مع رذاذ الليمون والنعناع والبرغموت، تركب وتخلط خصيصاً لك.', 'Un mélange aquatique rafraîchissant évoquant la brise marine avec du citron et de la menthe.', 'An ultra-fresh marine custom blend evoking sea breeze, lemon, cooling mint, and bergamot. Blended fresh in-store.'),
 -- Blend 3: Sweet Vanilla & Caramel
-('p9000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Sweet Vanilla & Caramel', 'female', 'edp', 100, true, 'تركيبة غورماند غنية وحلوة بمزيج الفانيليا الكريمية والكراميل اللزج مع لمسات دافئة من فول التونكا واللوز.', 'Un mélange gourmand doux et onctueux mariant la vanille, le caramel, la fève tonka et l''amande.', 'A sweet and rich gourmand blend featuring creamy vanilla, sticky caramel, warm tonka bean, and almond. Blended fresh in-store.'),
+('90000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Sweet Vanilla & Caramel', 'female', 'edp', 100, true, 'تركيبة غورماند غنية وحلوة بمزيج الفانيليا الكريمية والكراميل اللزج مع لمسات دافئة من فول التونكا واللوز.', 'Un mélange gourmand doux et onctueux mariant la vanille, le caramel, la fève tonka et l''amande.', 'A sweet and rich gourmand blend featuring creamy vanilla, sticky caramel, warm tonka bean, and almond. Blended fresh in-store.'),
 -- Blend 4: Velvet Leather & Tobacco
-('p9000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Velvet Leather & Tobacco', 'male', 'parfum', 100, true, 'تركيبة جلدية فخمة تمزج أوراق التبغ الدافئة والجلد الفاخر مع لمسة دافئة من الزعفران وخشب الصندل.', 'Un mélange de cuir luxueux et de tabac chaud avec une touche de safran et de santal.', 'A luxurious leather and tobacco blend enriched with warm saffron and creamy sandalwood. Blended fresh in-store.'),
+('90000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Velvet Leather & Tobacco', 'male', 'parfum', 100, true, 'تركيبة جلدية فخمة تمزج أوراق التبغ الدافئة والجلد الفاخر مع لمسة دافئة من الزعفران وخشب الصندل.', 'Un mélange de cuir luxueux et de tabac chaud avec une touche de safran et de santal.', 'A luxurious leather and tobacco blend enriched with warm saffron and creamy sandalwood. Blended fresh in-store.'),
 -- Blend 5: White Jasmine & Musk
-('p9000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000000', 'House Blend: White Jasmine & Musk', 'female', 'edp', 100, true, 'تركيبة زهرية ناعمة ومنعشة برائحة الياسمين الفواح والمسك الأبيض النظيف مع الباتشولي وزنبق الوادي.', 'Un mélange floral doux associant le jasmin blanc, le musc propre, le patchouli et le muguet.', 'A soft floral blend combining fragrant jasmine, clean white musk, earthy patchouli, and fresh lily of the valley.'),
+('90000000-0000-0000-0000-000000000005', 'b0000000-0000-0000-0000-000000000000', 'House Blend: White Jasmine & Musk', 'female', 'edp', 100, true, 'تركيبة زهرية ناعمة ومنعشة برائحة الياسمين الفواح والمسك الأبيض النظيف مع الباتشولي وزنبق الوادي.', 'Un mélange floral doux associant le jasmin blanc, le musc propre, le patchouli et le muguet.', 'A soft floral blend combining fragrant jasmine, clean white musk, earthy patchouli, and fresh lily of the valley.'),
 -- Blend 6: Oriental Spiced Woods
-('p9000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Oriental Spiced Woods', 'unisex', 'parfum', 100, true, 'تركيبة خشبية حارة ودافئة تجمع خشب الأرز مع نوتات حية من الهيل والقرفة والفلفل الأسود المنشط.', 'Un mélange boisé épicé mariant le cèdre avec la cardamome, la cannelle et le poivre noir.', 'A spicy woody blend combining dry cedarwood with cardamom, warm cinnamon, and black pepper.')
+('90000000-0000-0000-0000-000000000006', 'b0000000-0000-0000-0000-000000000000', 'House Blend: Oriental Spiced Woods', 'unisex', 'parfum', 100, true, 'تركيبة خشبية حارة ودافئة تجمع خشب الأرز مع نوتات حية من الهيل والقرفة والفلفل الأسود المنشط.', 'Un mélange boisé épicé mariant le cèdre avec la cardamome, la cannelle et le poivre noir.', 'A spicy woody blend combining dry cedarwood with cardamom, warm cinnamon, and black pepper.')
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. Map notes to House Blends
 INSERT INTO perfume_note_mappings (perfume_id, note_id) VALUES
 -- Blend 1: Royal Amber Oud Rose
-('p9000000-0000-0000-0000-000000000001', 'f2000000-0000-0000-0000-000000000013'), -- Oud
-('p9000000-0000-0000-0000-000000000001', 'f3000000-0000-0000-0000-000000000017'), -- Amber
-('p9000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000001'), -- Rose
-('p9000000-0000-0000-0000-000000000001', 'f3000000-0000-0000-0000-000000000022'), -- Saffron
+('90000000-0000-0000-0000-000000000001', 'f2000000-0000-0000-0000-000000000013'), -- Oud
+('90000000-0000-0000-0000-000000000001', 'f3000000-0000-0000-0000-000000000017'), -- Amber
+('90000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000001'), -- Rose
+('90000000-0000-0000-0000-000000000001', 'f3000000-0000-0000-0000-000000000022'), -- Saffron
 
 -- Blend 2: Fresh Ocean Breeze
-('p9000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000025'), -- Bergamot
-('p9000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000026'), -- Lemon
-('p9000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000031'), -- Sea Notes
-('p9000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000030'), -- Mint
+('90000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000025'), -- Bergamot
+('90000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000026'), -- Lemon
+('90000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000031'), -- Sea Notes
+('90000000-0000-0000-0000-000000000002', 'f4000000-0000-0000-0000-000000000030'), -- Mint
 
 -- Blend 3: Sweet Vanilla & Caramel
-('p9000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000041'), -- Vanilla
-('p9000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000042'), -- Caramel
-('p9000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000045'), -- Tonka Bean
-('p9000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000046'), -- Almond
+('90000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000041'), -- Vanilla
+('90000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000042'), -- Caramel
+('90000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000045'), -- Tonka Bean
+('90000000-0000-0000-0000-000000000003', 'f6000000-0000-0000-0000-000000000046'), -- Almond
 
 -- Blend 4: Velvet Leather & Tobacco
-('p9000000-0000-0000-0000-000000000004', 'f8000000-0000-0000-0000-000000000058'), -- Leather
-('p9000000-0000-0000-0000-000000000004', 'f3000000-0000-0000-0000-000000000023'), -- Tobacco
-('p9000000-0000-0000-0000-000000000004', 'f3000000-0000-0000-0000-000000000022'), -- Saffron
-('p9000000-0000-0000-0000-000000000004', 'f2000000-0000-0000-0000-000000000009'), -- Sandalwood
+('90000000-0000-0000-0000-000000000004', 'f8000000-0000-0000-0000-000000000058'), -- Leather
+('90000000-0000-0000-0000-000000000004', 'f3000000-0000-0000-0000-000000000023'), -- Tobacco
+('90000000-0000-0000-0000-000000000004', 'f3000000-0000-0000-0000-000000000022'), -- Saffron
+('90000000-0000-0000-0000-000000000004', 'f2000000-0000-0000-0000-000000000009'), -- Sandalwood
 
 -- Blend 5: White Jasmine & Musk
-('p9000000-0000-0000-0000-000000000005', 'f1000000-0000-0000-0000-000000000002'), -- Jasmine
-('p9000000-0000-0000-0000-000000000005', 'f8000000-0000-0000-0000-000000000057'), -- White Musk
-('p9000000-0000-0000-0000-000000000005', 'f2000000-0000-0000-0000-000000000011'), -- Patchouli
-('p9000000-0000-0000-0000-000000000005', 'f1000000-0000-0000-0000-000000000008'), -- Lily of the valley
+('90000000-0000-0000-0000-000000000005', 'f1000000-0000-0000-0000-000000000002'), -- Jasmine
+('90000000-0000-0000-0000-000000000005', 'f8000000-0000-0000-0000-000000000057'), -- White Musk
+('90000000-0000-0000-0000-000000000005', 'f2000000-0000-0000-0000-000000000011'), -- Patchouli
+('90000000-0000-0000-0000-000000000005', 'f1000000-0000-0000-0000-000000000008'), -- Lily of the valley
 
 -- Blend 6: Oriental Spiced Woods
-('p9000000-0000-0000-0000-000000000006', 'f2000000-0000-0000-0000-000000000010'), -- Cedarwood
-('p9000000-0000-0000-0000-000000000006', 'f7000000-0000-0000-0000-000000000050'), -- Cardamom
-('p9000000-0000-0000-0000-000000000006', 'f7000000-0000-0000-0000-000000000049'), -- Cinnamon
-('p9000000-0000-0000-0000-000000000006', 'f7000000-0000-0000-0000-000000000051')  -- Black Pepper
+('90000000-0000-0000-0000-000000000006', 'f2000000-0000-0000-0000-000000000010'), -- Cedarwood
+('90000000-0000-0000-0000-000000000006', 'f7000000-0000-0000-0000-000000000050'), -- Cardamom
+('90000000-0000-0000-0000-000000000006', 'f7000000-0000-0000-0000-000000000049'), -- Cinnamon
+('90000000-0000-0000-0000-000000000006', 'f7000000-0000-0000-0000-000000000051')  -- Black Pepper
 ON CONFLICT (perfume_id, note_id) DO NOTHING;
