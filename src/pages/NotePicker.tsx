@@ -22,7 +22,8 @@ import {
   HelpCircle,
   TrendingUp,
   Ban,
-  MapPin
+  MapPin,
+  LogOut
 } from 'lucide-react'
 
 // Lucide icon mapping based on database icon_name field
@@ -68,6 +69,10 @@ export default function NotePicker() {
     slogan: 'Premium Scents Explorer',
     mapsLink: ''
   })
+
+  // Auth & Session States
+  const [sessionUser, setSessionUser] = useState<any>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Quiz States
   const [quizOpen, setQuizOpen] = useState(false)
@@ -155,6 +160,46 @@ export default function NotePicker() {
     }
     fetchData()
   }, [])
+
+  // 1.5. Manage Auth & Session Check
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionUser(session?.user || null)
+      if (session?.user) {
+        checkAdminStatus(session.user.id)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user || null)
+      if (session?.user) {
+        checkAdminStatus(session.user.id)
+      } else {
+        setIsAdmin(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle()
+      setIsAdmin(!!data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setSessionUser(null)
+    setIsAdmin(false)
+  }
 
   // 2. Debounce search queries (150ms for low latency responsiveness)
   useEffect(() => {
@@ -405,6 +450,34 @@ export default function NotePicker() {
               <Heart className="h-3.5 w-3.5 fill-burgundy-500 text-burgundy-500" />
               <span>{t('wishlist_title')}</span>
             </button>
+
+            {/* Auth Login / Logout / Admin widget */}
+            {sessionUser ? (
+              <div className="flex items-center gap-2 bg-neutral-950/90 border border-white/10 rounded-full p-1 shadow-md">
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="px-3 py-1.5 rounded-full bg-gold-500/10 text-[10px] text-gold-400 font-extrabold hover:bg-gold-500/20 transition-all cursor-pointer"
+                  >
+                    Admin
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 rounded-full hover:bg-red-500/10 text-[10px] text-neutral-400 hover:text-red-400 transition-all cursor-pointer font-bold flex items-center gap-1"
+                >
+                  <LogOut className="h-3 w-3" />
+                  <span className="hidden md:inline">Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('/wishlist')}
+                className="px-4 py-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+              >
+                Sign In
+              </button>
+            )}
 
             {/* Language Switcher */}
             <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-1 shadow-md">

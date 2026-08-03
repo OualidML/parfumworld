@@ -17,7 +17,8 @@ import {
   Layers,
   Heart,
   Undo,
-  X
+  X,
+  LogOut
 } from 'lucide-react'
 
 interface MatchedPerfume {
@@ -77,6 +78,8 @@ export default function Results() {
   const [comparedPerfumeIds, setComparedPerfumeIds] = useState<string[]>([])
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [storeName, setStoreName] = useState('ParfumWorld')
+  const [sessionUser, setSessionUser] = useState<any>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const toggleCompare = (id: string) => {
     setComparedPerfumeIds(prev => {
@@ -138,7 +141,6 @@ export default function Results() {
         if (settingsData && settingsData.value) {
           setStoreName(settingsData.value)
         }
-
       } catch (err: any) {
         console.error('Error fetching matching results:', err)
         setError(t('db_load_error'))
@@ -149,6 +151,46 @@ export default function Results() {
 
     fetchResults()
   }, [selectedNoteIds, excludedNoteIds])
+
+  // Manage Auth & Session Check
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionUser(session?.user || null)
+      if (session?.user) {
+        checkAdminStatus(session.user.id)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user || null)
+      if (session?.user) {
+        checkAdminStatus(session.user.id)
+      } else {
+        setIsAdmin(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const checkAdminStatus = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('id', userId)
+        .maybeSingle()
+      setIsAdmin(!!data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setSessionUser(null)
+    setIsAdmin(false)
+  }
 
   // Localized retrieval helpers
   const getLocalizedName = (item: Note) => {
@@ -235,8 +277,43 @@ export default function Results() {
             </span>
           </div>
 
-          <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-light text-end">
-            {t('results_title')}
+          <div className="flex items-center gap-3">
+            {/* Wishlist navigation portal */}
+            <button
+              onClick={() => navigate('/wishlist')}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+            >
+              <Heart className="h-3.5 w-3.5 fill-burgundy-500 text-burgundy-500" />
+              <span className="hidden sm:inline">{t('wishlist_title')}</span>
+            </button>
+
+            {/* Auth Widget */}
+            {sessionUser ? (
+              <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-0.5 shadow-md">
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="px-2.5 py-1 rounded-full bg-gold-500/10 text-[9px] text-gold-400 font-extrabold hover:bg-gold-500/20 transition-all cursor-pointer"
+                  >
+                    Admin
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="px-2.5 py-1 rounded-full hover:bg-red-500/10 text-[9px] text-neutral-400 hover:text-red-400 transition-all cursor-pointer font-bold flex items-center gap-1"
+                >
+                  <LogOut className="h-3 w-3" />
+                  <span className="hidden md:inline">Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate('/wishlist')}
+                className="px-3 py-1.5 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+              >
+                Sign In
+              </button>
+            )}
           </div>
 
         </div>
