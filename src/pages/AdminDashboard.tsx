@@ -90,8 +90,14 @@ export default function AdminDashboard() {
   const [authLoading, setAuthLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  // Active Tab: 'stats' | 'perfumes' | 'notes' | 'settings'
-  const [activeTab, setActiveTab] = useState<'stats' | 'perfumes' | 'notes' | 'settings'>('stats')
+  // Active Tab: 'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives'
+  const [activeTab, setActiveTab] = useState<'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives'>('stats')
+
+  // Alternatives Finder States
+  const [selectedAnchorId, setSelectedAnchorId] = useState<string>('')
+  const [alternativesList, setAlternativesList] = useState<any[]>([])
+  const [altsLoading, setAltsLoading] = useState(false)
+  const [uploadLoadingId, setUploadLoadingId] = useState<string | null>(null)
 
   // Global Data States
   const [brands, setBrands] = useState<Brand[]>([])
@@ -201,6 +207,129 @@ export default function AdminDashboard() {
     fetchStatsData()
     fetchSettingsData()
   }, [isAdmin])
+
+  // 3. Fetch Alternatives when selectedAnchorId changes
+  useEffect(() => {
+    async function fetchAlts() {
+      if (!selectedAnchorId) {
+        setAlternativesList([])
+        return
+      }
+      setAltsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('perfume_alternatives')
+          .select('*')
+          .eq('perfume_id', selectedAnchorId)
+          .order('match_confidence', { ascending: false })
+        
+        if (error) throw error
+        setAlternativesList(data || [])
+      } catch (err: any) {
+        console.error('Error fetching alternatives:', err)
+      } finally {
+        setAltsLoading(false)
+      }
+    }
+    fetchAlts()
+  }, [selectedAnchorId])
+
+  const handleUploadAlternative = async (alt: any) => {
+    if (!selectedAnchorId) return
+    setUploadLoadingId(alt.id)
+    try {
+      // 1. Resolve or Create Brand
+      let brandId = ''
+      const existingBrand = brands.find(b => b.name.toLowerCase() === alt.brand.toLowerCase())
+      if (existingBrand) {
+        brandId = existingBrand.id
+      } else {
+        const { data: newBrand, error: brandErr } = await supabase
+          .from('brands')
+          .insert({ name: alt.brand, country: 'France' })
+          .select('id')
+          .single()
+        if (brandErr) throw brandErr
+        brandId = newBrand.id
+        setBrands(prev => [...prev, { id: brandId, name: alt.brand }])
+      }
+
+      // 2. Insert Perfume Record
+      const { data: newPerfume, error: perfumeErr } = await supabase
+        .from('perfumes')
+        .insert({
+          brand_id: brandId,
+          name: alt.name,
+          gender: 'unisex',
+          concentration: 'edp',
+          price: 0,
+          volume_ml: 100,
+          family: 'Woody Oriental',
+          season_tags: ['Winter', 'Autumn'],
+          occasion_tags: ['Night', 'Casual'],
+          in_stock: true,
+          image_url: alt.image_url,
+          description_ar: `بديل عطر مميز: ${alt.shop_owner_pitch}`,
+          description_en: `Alternative signature fragrance: ${alt.shop_owner_pitch}`,
+          description_fr: `Alternative: ${alt.shop_owner_pitch}`
+        })
+        .select('id')
+        .single()
+      if (perfumeErr) throw perfumeErr
+      const newPerfumeId = newPerfume.id
+
+      // 3. Map Scent Notes
+      const noteMappings: any[] = []
+      const mapNoteNameToId = (name: string) => {
+        const found = notes.find(n => 
+          n.name_en.toLowerCase() === name.toLowerCase() ||
+          n.name_fr.toLowerCase() === name.toLowerCase() ||
+          n.name_ar.toLowerCase() === name.toLowerCase()
+        )
+        return found ? found.id : null
+      }
+
+      for (const layer of ['top', 'middle', 'base']) {
+        const key = `${layer}_notes`
+        const noteList = alt.notes[key] || []
+        for (const noteName of noteList) {
+          const noteId = mapNoteNameToId(noteName)
+          if (noteId) {
+            noteMappings.push({
+              perfume_id: newPerfumeId,
+              note_id: noteId,
+              layer: layer
+            })
+          }
+        }
+      }
+
+      if (noteMappings.length > 0) {
+        const { error: mappingErr } = await supabase
+          .from('perfume_notes')
+          .insert(noteMappings)
+        if (mappingErr) throw mappingErr
+      }
+
+      // 4. Set alternative state to uploaded
+      const { error: altErr } = await supabase
+        .from('perfume_alternatives')
+        .update({ is_uploaded: true })
+        .eq('id', alt.id)
+      if (altErr) throw altErr
+
+      // Update Local State
+      setAlternativesList(prev => prev.map(a => a.id === alt.id ? { ...a, is_uploaded: true } : a))
+      // Refresh perfumes list
+      fetchGlobalData()
+      alert('Alternative uploaded successfully and added to stock!')
+    } catch (err: any) {
+      console.error(err)
+      alert(`Upload failed: ${err.message}`)
+    } finally {
+      setUploadLoadingId(null)
+    }
+  }
 
   const fetchGlobalData = async () => {
     setDataLoading(true)
@@ -651,7 +780,7 @@ export default function AdminDashboard() {
 
           {/* Navigation Tab Links (Large screens) */}
           <nav className="hidden md:flex items-center gap-1.5 bg-neutral-900/60 p-1 border border-white/5 rounded-xl">
-            {(['stats', 'perfumes', 'notes', 'settings'] as const).map((tab) => (
+            {(['stats', 'perfumes', 'notes', 'settings', 'alternatives'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -661,7 +790,7 @@ export default function AdminDashboard() {
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                {t(`tab_${tab}`)}
+                {tab === 'alternatives' ? 'Reminds Me Of' : t(`tab_${tab}`)}
               </button>
             ))}
           </nav>
@@ -680,18 +809,18 @@ export default function AdminDashboard() {
 
       {/* Sub Navigation (Mobile screen) */}
       <div className="md:hidden w-full px-4 pt-4">
-        <div className="grid grid-cols-4 bg-neutral-900/60 p-1 border border-white/5 rounded-xl text-center">
-          {(['stats', 'perfumes', 'notes', 'settings'] as const).map((tab) => (
+        <div className="grid grid-cols-5 bg-neutral-900/60 p-1 border border-white/5 rounded-xl text-center font-bold">
+          {(['stats', 'perfumes', 'notes', 'settings', 'alternatives'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-2 rounded-lg text-[10px] font-bold transition-all ${
+              className={`py-2 rounded-lg text-[9px] font-bold transition-all ${
                 activeTab === tab 
                   ? 'bg-gold-500 text-neutral-950 font-black'
                   : 'text-neutral-400'
               }`}
             >
-              {t(`tab_${tab}`)}
+              {tab === 'alternatives' ? 'Alts' : t(`tab_${tab}`)}
             </button>
           ))}
         </div>
@@ -1142,6 +1271,129 @@ export default function AdminDashboard() {
                   </button>
 
                 </form>
+              </div>
+            )}
+
+            {/* TAB 5: Alternatives Panel */}
+            {activeTab === 'alternatives' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="flex items-center gap-3 bg-gradient-to-r from-gold-500/10 to-transparent border-l-2 border-gold-500 p-4.5 rounded-r-2xl">
+                  <Sparkles className="h-5 w-5 text-gold-400 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-white">This Perfume Reminds Me Of... (Sales Alternatives)</h3>
+                    <p className="text-[11px] text-neutral-400 font-light mt-0.5">
+                      Surface twin scents, cross-sell alternatives, and clones for stock bridging. Click "Upload to Stock" to expand your catalog.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-900/40 border border-white/5 rounded-3xl p-6 shadow-xl flex flex-col gap-4">
+                  <div className="space-y-1.5 max-w-md">
+                    <label className="text-xs text-neutral-400 font-semibold text-start block">Select Anchor Fragrance</label>
+                    <select
+                      value={selectedAnchorId}
+                      onChange={(e) => setSelectedAnchorId(e.target.value)}
+                      className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
+                    >
+                      <option value="">-- Choose a perfume --</option>
+                      {perfumes.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.brands.name} - {p.name} ({p.gender})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {altsLoading ? (
+                    <div className="py-12 flex justify-center items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-gold-400" />
+                      <span className="text-xs text-neutral-400">Loading alternatives...</span>
+                    </div>
+                  ) : selectedAnchorId && alternativesList.length === 0 ? (
+                    <p className="text-xs text-neutral-500 italic py-6 text-start">No alternatives mapped for this fragrance yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                      {alternativesList.map((alt) => (
+                        <div key={alt.id} className="bg-neutral-950 border border-white/5 rounded-2xl p-5 flex flex-col justify-between gap-4">
+                          <div className="flex gap-4">
+                            {alt.image_url ? (
+                              <img 
+                                src={alt.image_url} 
+                                alt={alt.name} 
+                                className="w-16 h-16 rounded-xl object-contain bg-white/5 shrink-0 border border-white/10"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-16 h-16 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0 border border-white/10 text-neutral-500 text-[10px]">
+                                No Image
+                              </div>
+                            )}
+                            <div className="space-y-1 text-start">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-gold-500 uppercase tracking-widest">{alt.brand}</span>
+                                <span className="px-2 py-0.5 rounded bg-gold-500/10 text-gold-400 font-mono text-[9px] font-bold">
+                                  {alt.match_confidence}% Match
+                                </span>
+                              </div>
+                              <h4 className="text-sm font-bold text-white leading-tight">{alt.name}</h4>
+                              <p className="text-[11px] text-neutral-400 leading-normal italic mt-1 font-light">
+                                "{alt.shop_owner_pitch}"
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="border-t border-white/5 pt-3 space-y-2 text-start">
+                            <span className="text-[10px] text-neutral-400 font-semibold block uppercase tracking-wider">Olfactory Notes</span>
+                            <div className="grid grid-cols-3 gap-2">
+                              {['top', 'middle', 'base'].map((layer) => {
+                                const key = `${layer}_notes`;
+                                const layerNotes = alt.notes[key] || [];
+                                return (
+                                  <div key={layer} className="space-y-1">
+                                    <span className="text-[8px] text-gold-500 font-bold uppercase block">{layer === 'middle' ? 'heart' : layer}</span>
+                                    <p className="text-[10px] text-neutral-400 leading-tight">
+                                      {layerNotes.join(', ') || '-'}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="border-t border-white/5 pt-3 flex justify-between items-center">
+                            {alt.is_uploaded ? (
+                              <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1.5">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                Available in stock
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-[10px] text-amber-500 font-bold">
+                                  Not in catalog
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUploadAlternative(alt)}
+                                  disabled={uploadLoadingId !== null}
+                                  className="px-3.5 py-1.5 rounded-xl bg-burgundy-750 border border-gold-500/20 hover:border-gold-500/50 text-xs text-gold-400 hover:text-gold-300 font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                                >
+                                  {uploadLoadingId === alt.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-3.5 w-3.5" />
+                                  )}
+                                  <span>Upload to Stock</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </>

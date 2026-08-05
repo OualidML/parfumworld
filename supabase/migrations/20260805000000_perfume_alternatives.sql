@@ -1,0 +1,36 @@
+-- Migration: Create perfume_alternatives table and seed data
+
+CREATE TABLE IF NOT EXISTS perfume_alternatives (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    perfume_id uuid REFERENCES perfumes(id) ON DELETE CASCADE,
+    brand text NOT NULL,
+    name text NOT NULL,
+    match_confidence integer NOT NULL CHECK (match_confidence BETWEEN 0 AND 100),
+    notes jsonb NOT NULL,
+    image_url text,
+    shop_owner_pitch text,
+    is_uploaded boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT uniq_perfume_alt UNIQUE (perfume_id, brand, name)
+);
+
+ALTER TABLE perfume_alternatives ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read perfume_alternatives" ON perfume_alternatives
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow admin write perfume_alternatives" ON perfume_alternatives
+    FOR ALL TO authenticated USING (is_admin()) WITH CHECK (is_admin());
+
+-- Seed alternatives for popular anchor perfumes
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('4eeefcbb-40c2-5181-8957-a0cfc1f7c616', 'Armaf', 'Club de Nuit Intense Man', 95, '{"top_notes": ["Lemon", "Pineapple", "Bergamot", "Blackcurrant", "Apple"], "middle_notes": ["Birch", "Jasmine", "Rose"], "base_notes": ["Musk", "Ambergris", "Patchouli", "Vanilla"]}'::jsonb, 'https://fimgs.net/images/perfume/m.27656.jpg', 'The most famous Bestseller clone of Creed Aventus with unmatched fresh-smoky sillage.', true) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('4eeefcbb-40c2-5181-8957-a0cfc1f7c616', 'Montblanc', 'Explorer', 90, '{"top_notes": ["Bergamot", "Pink Pepper", "Clary Sage"], "middle_notes": ["Haitian Vetiver", "Leather"], "base_notes": ["Ambroxan", "Akigalawood", "Patchouli", "Cacao"]}'::jsonb, 'https://fimgs.net/images/perfume/m.52002.jpg', 'A clean, modern, and smoother designer alternative with high vetiver and ambroxan.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('4eeefcbb-40c2-5181-8957-a0cfc1f7c616', 'Lattafa', 'Al Dur Al Maknoon Silver', 82, '{"top_notes": ["Pineapple", "Bergamot", "Apple"], "middle_notes": ["Birch", "Jasmine"], "base_notes": ["Leather", "Musk", "Oakmoss", "Patchouli"]}'::jsonb, 'https://fimgs.net/images/perfume/m.25890.jpg', 'An affordable smoky birch and apple alternative with a strong woody foundation.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('25682d94-2b18-5db7-b4aa-8ef847c14976', 'Lattafa', 'Asad', 92, '{"top_notes": ["Black Pepper", "Pineapple", "Tobacco"], "middle_notes": ["Coffee", "Patchouli", "Iris"], "base_notes": ["Amber", "Vanilla", "Dry Wood", "Benzoin"]}'::jsonb, 'https://fimgs.net/images/perfume/m.70585.jpg', 'An exceptional clone of Sauvage Elixir featuring rich black pepper, coffee, and vanilla.', true) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('25682d94-2b18-5db7-b4aa-8ef847c14976', 'Prada', 'Luna Rossa Carbon', 88, '{"top_notes": ["Bergamot", "Pepper"], "middle_notes": ["Lavender", "Coal", "Soil tincture", "Watery Notes"], "base_notes": ["Ambroxan", "Patchouli"]}'::jsonb, 'https://fimgs.net/images/perfume/m.44030.jpg', 'A metallic, clean, and smoother designer alternative with lavender and ambroxan.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('85644629-8576-5ad4-8050-84936fee1a92', 'Lattafa', 'Ana Abiyedh Rouge', 94, '{"top_notes": ["Nashi Pear", "Kumquat", "Bergamot"], "middle_notes": ["Geranium", "Caramel", "Corriander"], "base_notes": ["Ambergris", "Saffron", "Oakmoss", "Musk"]}'::jsonb, 'https://fimgs.net/images/perfume/m.63060.jpg', 'An exceptional, sweet amber-saffron twin with identical cotton-candy projection.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('85644629-8576-5ad4-8050-84936fee1a92', 'Club de Nuit', 'Untold', 93, '{"top_notes": ["Saffron", "Jasmine"], "middle_notes": ["Amberwood", "Ambergris"], "base_notes": ["Fir Resin", "Cedar"]}'::jsonb, 'https://fimgs.net/images/perfume/m.77123.jpg', 'A highly projected clone with identical sweet saffron, ambergris, and cedarwood base.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('85644629-8576-5ad4-8050-84936fee1a92', 'Ariana Grande', 'Cloud', 88, '{"top_notes": ["Lavender", "Pear", "Bergamot"], "middle_notes": ["Whipped Cream", "Praline", "Coconut", "Vanilla orchid"], "base_notes": ["Musk", "Woody Notes"]}'::jsonb, 'https://fimgs.net/images/perfume/m.50384.jpg', 'A popular sweet, airy alternative featuring whipped cream, praline, and coconut.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('579f8e9d-4352-5a0c-b945-629cbf395077', 'Zara', 'Golden Decade', 92, '{"top_notes": ["Mandarin Orange"], "middle_notes": ["Jasmine", "Orange Blossom", "Lavender"], "base_notes": ["Vanilla", "Amber", "Musk"]}'::jsonb, 'https://fimgs.net/images/perfume/m.70320.jpg', 'A beautiful designer clone focusing on lavender, orange blossom, and warm vanilla.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('82b2f27f-9899-5546-a36f-f82ef2ec17cf', 'Zara', 'Gardenia', 90, '{"top_notes": ["Peach", "Raspberry"], "middle_notes": ["Gardenia", "Jasmine", "Coffee"], "base_notes": ["Vanilla", "Patchouli", "Musk"]}'::jsonb, 'https://fimgs.net/images/perfume/m.49121.jpg', 'A beautiful, rich alternative focusing on orange blossom, coffee, and vanilla.', false) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
+INSERT INTO perfume_alternatives (perfume_id, brand, name, match_confidence, notes, image_url, shop_owner_pitch, is_uploaded) VALUES ('90000000-0000-0000-0000-000000000012', 'Lattafa', 'Asad', 80, '{"top_notes": ["Black Pepper", "Pineapple", "Tobacco"], "middle_notes": ["Coffee", "Patchouli", "Iris"], "base_notes": ["Amber", "Vanilla", "Dry Wood", "Benzoin"]}'::jsonb, 'https://fimgs.net/images/perfume/m.70585.jpg', 'A warm spicy alternative featuring sweet vanilla and warm amber dry down.', true) ON CONFLICT (perfume_id, brand, name) DO NOTHING;
