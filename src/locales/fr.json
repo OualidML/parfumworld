@@ -154,5 +154,12 @@
   "available_stock": "Disponible en stock",
   "not_in_catalog": "Pas dans le catalogue",
   "upload_to_stock": "Ajouter au stock",
-  "dynamic_alt_pitch": "Alternative suggérée basée sur la pyramide olfactive."
+  "dynamic_alt_pitch": "Alternative suggérée basée sur la pyramide olfactive.",
+  "change_password_title": "Modifier le mot de passe",
+  "new_password_label": "Nouveau mot de passe",
+  "confirm_password_label": "Confirmer le mot de passe",
+  "update_password_button": "Mettre à jour le mot de passe",
+  "password_match_error": "Les mots de passe ne correspondent pas.",
+  "password_length_error": "Le mot de passe doit contenir au moins 6 caractères.",
+  "password_change_success": "Mot de passe modifié avec succès!"
 }

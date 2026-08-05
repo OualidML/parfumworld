@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { 
   Sparkles, LogOut, Loader2, AlertCircle, TrendingUp, Package, Layers, Settings,
   Plus, Edit2, Trash2, XCircle, Search, Save, X, Upload, DollarSign,
-  Tag, MapPin, MessageSquare
+  Tag, MapPin, MessageSquare, KeyRound
 } from 'lucide-react'
 
 // Interfaces mapping database columns
@@ -158,6 +158,11 @@ export default function AdminDashboard() {
     store_slogan: '',
     google_maps_link: ''
   })
+
+  // Password Update States
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passLoading, setPassLoading] = useState(false)
 
   // Stats Analytics states
   const [statNotes, setStatNotes] = useState<SearchStatNote[]>([])
@@ -781,6 +786,31 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      alert(t('password_match_error'))
+      return
+    }
+    if (newPassword.length < 6) {
+      alert(t('password_length_error'))
+      return
+    }
+
+    setPassLoading(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      alert(t('password_change_success'))
+      setNewPassword('')
+      setConfirmPassword('')
+    } catch (err: any) {
+      alert(`Password update error: ${err.message}`)
+    } finally {
+      setPassLoading(false)
+    }
+  }
+
   // Text helpers matching languages
   const getLocalizedName = (obj: any) => {
     if (currentLanguage === 'ar') return obj.name_ar || obj.name_en || obj.name
@@ -1326,6 +1356,57 @@ export default function AdminDashboard() {
                   </button>
 
                 </form>
+
+                {/* Change Admin Password */}
+                <div className="mt-10 pt-8 border-t border-white/5 space-y-6">
+                  <h4 className="font-serif text-base font-bold text-white flex items-center gap-2">
+                    <KeyRound className="h-4.5 w-4.5 text-gold-400" />
+                    {t('change_password_title')}
+                  </h4>
+
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* New Password */}
+                      <div className="space-y-1.5 text-start">
+                        <label className="text-xs font-semibold text-neutral-400 block">{t('new_password_label')}</label>
+                        <input
+                          type="password"
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
+                        />
+                      </div>
+
+                      {/* Confirm Password */}
+                      <div className="space-y-1.5 text-start">
+                        <label className="text-xs font-semibold text-neutral-400 block">{t('confirm_password_label')}</label>
+                        <input
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={passLoading}
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-bold text-xs shadow-xl shadow-gold-500/10 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {passLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-neutral-950" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      <span>{t('update_password_button')}</span>
+                    </button>
+                  </form>
+                </div>
               </div>
             )}
 

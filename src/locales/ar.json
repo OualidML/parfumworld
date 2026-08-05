@@ -154,5 +154,12 @@
   "available_stock": "متوفر في المحل",
   "not_in_catalog": "غير مضاف للكتالوج",
   "upload_to_stock": "إضافة للمحل",
-  "dynamic_alt_pitch": "بديل مقترح بناءً على تشابه المكونات العطرية والعائلة العطرية."
+  "dynamic_alt_pitch": "بديل مقترح بناءً على تشابه المكونات العطرية والعائلة العطرية.",
+  "change_password_title": "تغيير كلمة مرور الإدارة",
+  "new_password_label": "كلمة المرور الجديدة",
+  "confirm_password_label": "تأكيد كلمة المرور الجديدة",
+  "update_password_button": "تحديث كلمة المرور",
+  "password_match_error": "كلمتا المرور غير متطابقتين.",
+  "password_length_error": "يجب أن تكون كلمة المرور 6 أحرف على الأقل.",
+  "password_change_success": "تم تغيير كلمة المرور بنجاح!"
 }

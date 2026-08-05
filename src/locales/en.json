@@ -154,5 +154,12 @@
   "available_stock": "Available in stock",
   "not_in_catalog": "Not in catalog",
   "upload_to_stock": "Upload to Stock",
-  "dynamic_alt_pitch": "Suggested alternative matching the olfactory pyramid and family."
+  "dynamic_alt_pitch": "Suggested alternative matching the olfactory pyramid and family.",
+  "change_password_title": "Change Admin Password",
+  "new_password_label": "New Password",
+  "confirm_password_label": "Confirm New Password",
+  "update_password_button": "Update Password",
+  "password_match_error": "Passwords do not match.",
+  "password_length_error": "Password must be at least 6 characters.",
+  "password_change_success": "Password changed successfully!"
 }
