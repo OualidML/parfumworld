@@ -51,6 +51,7 @@ interface Perfume {
   description_ar?: string
   description_en?: string
   description_fr?: string
+  perfume_notes?: any[]
 }
 
 interface PerfumeNoteMapping {
@@ -252,6 +253,17 @@ export default function AdminDashboard() {
               .slice(0, 6)
 
             const mapped = candidates.map((p, idx) => {
+              const pNotes = p.perfume_notes || []
+              const getNoteNamesForLayer = (layerName: string) => {
+                return pNotes
+                  .filter((pn: any) => pn.layer === layerName)
+                  .map((pn: any) => {
+                    const foundNote = notes.find(n => n.id === pn.note_id)
+                    return foundNote ? (currentLanguage === 'ar' ? foundNote.name_ar : currentLanguage === 'fr' ? foundNote.name_fr : foundNote.name_en) : ''
+                  })
+                  .filter(Boolean)
+              }
+
               return {
                 id: `fallback-${p.id}`,
                 perfume_id: selectedAnchorId,
@@ -259,9 +271,9 @@ export default function AdminDashboard() {
                 name: p.name,
                 match_confidence: 85 - idx * 3,
                 notes: {
-                  top_notes: [],
-                  middle_notes: [],
-                  base_notes: []
+                  top_notes: getNoteNamesForLayer('top'),
+                  middle_notes: getNoteNamesForLayer('middle'),
+                  base_notes: getNoteNamesForLayer('base')
                 },
                 image_url: p.image_url,
                 shop_owner_pitch: `Suggested alternative in stock matching the character of ${anchor.name}.`,
@@ -409,7 +421,7 @@ export default function AdminDashboard() {
       // Fetch Perfumes with Brand details
       const { data: perfData } = await supabase
         .from('perfumes')
-        .select('*, brands(*)')
+        .select('*, brands(*), perfume_notes(*)')
         .order('created_at', { ascending: false })
       setPerfumes(perfData || [])
     } catch (e) {
