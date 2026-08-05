@@ -145,5 +145,14 @@
   "logged_in_as": "Connecté en tant que : {{email}}",
   "wishlist_title": "Favoris",
   "dupe_badge_text": "Inspiré de l'esprit de {{perfume}}",
-  "image_size_error": "L'image est trop volumineuse. Veuillez en télécharger une de moins de 1.5 Mo."
+  "image_size_error": "L'image est trop volumineuse. Veuillez en télécharger une de moins de 1.5 Mo.",
+  "tab_alternatives": "Ressemble à",
+  "search_anchor_placeholder": "Rechercher un parfum ancre pour voir les alternatives...",
+  "no_alternatives_found": "Aucune alternative trouvée pour ce parfum.",
+  "match_confidence": "Match",
+  "olfactory_notes": "Notes Olfactives",
+  "available_stock": "Disponible en stock",
+  "not_in_catalog": "Pas dans le catalogue",
+  "upload_to_stock": "Ajouter au stock",
+  "dynamic_alt_pitch": "Alternative suggérée basée sur la pyramide olfactive."
 }

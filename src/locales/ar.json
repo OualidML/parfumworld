@@ -145,5 +145,14 @@
   "logged_in_as": "مسجل الدخول كـ: {{email}}",
   "wishlist_title": "المفضلة",
   "dupe_badge_text": "مستوحى من روح {{perfume}}",
-  "image_size_error": "حجم الصورة كبير جداً. يرجى رفع صورة أصغر من 1.5 ميغابايت."
+  "image_size_error": "حجم الصورة كبير جداً. يرجى رفع صورة أصغر من 1.5 ميغابايت.",
+  "tab_alternatives": "بدائل العطور",
+  "search_anchor_placeholder": "ابحث عن عطر أساسي لعرض البدائل المتاحة...",
+  "no_alternatives_found": "لا توجد بدائل مضافة لهذا العطر حالياً.",
+  "match_confidence": "نسبة التطابق",
+  "olfactory_notes": "المكونات العطرية",
+  "available_stock": "متوفر في المحل",
+  "not_in_catalog": "غير مضاف للكتالوج",
+  "upload_to_stock": "إضافة للمحل",
+  "dynamic_alt_pitch": "بديل مقترح بناءً على تشابه المكونات العطرية والعائلة العطرية."
 }

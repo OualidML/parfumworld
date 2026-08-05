@@ -621,7 +621,7 @@ export default function NotePicker() {
                       onClick={() => toggleNote(note)}
                       className={`group p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between items-start text-start gap-4 cursor-pointer min-h-[110px] ${
                         isSelected
-                          ? 'bg-burgundy-950 border-gold-500 text-gold-400 shadow-lg shadow-gold-500/5'
+                          ? 'bg-gradient-to-tr from-gold-400 via-gold-500 to-gold-600 border-gold-300 text-neutral-950 font-extrabold shadow-lg shadow-gold-500/20 scale-[1.02]'
                           : isExcluded
                           ? 'bg-red-950/20 border-red-500/30 text-red-400 shadow-lg shadow-red-500/5'
                           : 'bg-neutral-900/30 border-white/10 text-neutral-300 hover:bg-neutral-900/60 hover:border-white/20'
@@ -629,7 +629,9 @@ export default function NotePicker() {
                     >
                       {/* Note Label Header */}
                       <div className="w-full flex justify-between items-start gap-2 text-start">
-                        <span className="text-sm font-bold tracking-wide leading-tight group-hover:text-white transition-colors">
+                        <span className={`text-sm font-bold tracking-wide leading-tight transition-colors ${
+                          isSelected ? 'text-neutral-950' : 'text-neutral-300 group-hover:text-white'
+                        }`}>
                           {getLocalizedName(note)}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -644,6 +646,8 @@ export default function NotePicker() {
                             className={`h-5 w-5 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
                               isExcluded
                                 ? 'bg-red-500 border-red-500 text-white'
+                                : isSelected
+                                ? 'border-neutral-900/20 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-800 hover:text-red-650'
                                 : 'border-white/10 hover:border-red-500/50 hover:bg-red-500/10 text-neutral-500 hover:text-red-400'
                             }`}
                           >
@@ -659,7 +663,7 @@ export default function NotePicker() {
                             }}
                             className={`h-5 w-5 rounded-full flex items-center justify-center border transition-all cursor-pointer ${
                               isSelected
-                                ? 'bg-gold-500 border-gold-500 text-neutral-950 shadow-md shadow-gold-500/10'
+                                ? 'bg-neutral-950 border-neutral-950 text-gold-400 shadow-md shadow-black/20'
                                 : 'border-white/10 hover:border-gold-500/50 hover:bg-gold-500/10 text-neutral-500 hover:text-gold-400'
                             }`}
                           >
@@ -671,12 +675,14 @@ export default function NotePicker() {
                       {/* Note Description Footer */}
                       <div className="w-full text-start">
                         <span className={`text-[9px] uppercase tracking-wider font-semibold block ${
-                          isSelected ? 'text-gold-400/80' : isExcluded ? 'text-red-400/80' : 'text-neutral-400'
+                          isSelected ? 'text-neutral-800' : isExcluded ? 'text-red-400/80' : 'text-neutral-400'
                         }`}>
                           {isExcluded ? t('excluded_note_badge') : t('layer_' + note.layer)}
                         </span>
                         {note.description_ar && currentLanguage === 'ar' && (
-                          <p className="text-[10px] text-neutral-400 mt-1 line-clamp-1 leading-snug font-light">
+                          <p className={`text-[10px] mt-1 line-clamp-1 leading-snug font-light ${
+                            isSelected ? 'text-neutral-800/80' : 'text-neutral-400'
+                          }`}>
                             {note.description_ar}
                           </p>
                         )}

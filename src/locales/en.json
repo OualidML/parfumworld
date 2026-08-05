@@ -145,5 +145,14 @@
   "logged_in_as": "Logged in as: {{email}}",
   "wishlist_title": "Wishlist",
   "dupe_badge_text": "Inspired by the spirit of {{perfume}}",
-  "image_size_error": "Image size is too large. Please upload an image smaller than 1.5MB."
+  "image_size_error": "Image size is too large. Please upload an image smaller than 1.5MB.",
+  "tab_alternatives": "Reminds Me Of",
+  "search_anchor_placeholder": "Search anchor perfume to view alternatives...",
+  "no_alternatives_found": "No alternatives found for this fragrance.",
+  "match_confidence": "Match Confidence",
+  "olfactory_notes": "Olfactory Notes",
+  "available_stock": "Available in stock",
+  "not_in_catalog": "Not in catalog",
+  "upload_to_stock": "Upload to Stock",
+  "dynamic_alt_pitch": "Suggested alternative matching the olfactory pyramid and family."
 }
