@@ -101,14 +101,21 @@ CREATE POLICY "Public authenticated read brands" ON brands FOR SELECT TO authent
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$ 
 BEGIN   
-    INSERT INTO public.admins (id) VALUES (new.id) ON CONFLICT (id) DO NOTHING;      
-    
-    INSERT INTO public.store_settings (shop_id, key, value, description) VALUES     
-        (new.id, 'store_name', 'My Perfume Shop', 'The name of the boutique'),     
-        (new.id, 'store_slogan', 'Premium Scents Explorer', 'Store slogan'),     
-        (new.id, 'whatsapp_number', '+212600000000', 'WhatsApp order redirection number'),     
-        (new.id, 'google_maps_link', 'https://maps.google.com', 'Store location URL')   
-    ON CONFLICT (shop_id, key) DO NOTHING;      
+    -- STRICT ROLE CHECK: Only provision a new database partition if the user is explicitly tagged as a shop owner   
+    IF new.raw_user_meta_data->>'role' = 'shop_owner' THEN       
+        -- Insert into public.admins       
+        INSERT INTO public.admins (id)       
+        VALUES (new.id)       
+        ON CONFLICT (id) DO NOTHING;              
+        
+        -- Auto-seed default store settings for the new tenant       
+        INSERT INTO public.store_settings (shop_id, key, value, description) VALUES       
+        (new.id, 'store_name', 'My Perfume Shop', 'The name of the perfume boutique'),       
+        (new.id, 'store_slogan', 'Premium Scents Explorer', 'The promotional slogan/subheading of the boutique'),       
+        (new.id, 'whatsapp_number', '+212600000000', 'WhatsApp phone number for order processing redirection'),       
+        (new.id, 'google_maps_link', 'https://maps.google.com', 'Google Maps link to physical store location')       
+        ON CONFLICT (shop_id, key) DO NOTHING;   
+    END IF;      
     
     RETURN NEW; 
 END; 
