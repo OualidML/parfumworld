@@ -53,6 +53,9 @@ export default function AdminLogin() {
         throw new Error(t('unauthorized_error'))
       }
 
+      // Save shop owner ID to local storage for kiosk persistence
+      localStorage.setItem('parfumworld_shop_id', user.id)
+
       // Redirect to Admin Dashboard
       navigate('/admin')
     } catch (err: any) {

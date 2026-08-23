@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { useWishlist } from '../hooks/useWishlist'
+import { resolveShopId } from '../lib/utils'
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -123,16 +124,20 @@ export default function PerfumeDetails() {
 
         if (mappingErr) throw mappingErr
 
+        const shopId = await resolveShopId()
+
         // Fetch Store Settings
         const { data: settingsData } = await supabase
           .from('store_settings')
           .select('key, value')
+          .eq('shop_id', shopId)
 
         // Fetch similar perfumes belonging to the same scent family
         const { data: similarData } = await supabase
           .from('perfumes')
           .select('*, brands(*)')
           .eq('family', perfData.family)
+          .eq('shop_id', shopId)
           .neq('id', id)
           .limit(3)
 

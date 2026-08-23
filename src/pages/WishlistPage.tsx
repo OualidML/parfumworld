@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWishlist } from '../hooks/useWishlist'
 import { supabase } from '../lib/supabase'
+import { resolveShopId } from '../lib/utils'
 import { 
   Package, Award, Sun, Moon, Sparkles, ArrowLeft, Heart, Loader2, Mail, CheckCircle2, AlertCircle, LogOut
 } from 'lucide-react'
@@ -109,9 +110,11 @@ export default function WishlistPage() {
   const fetchPerfumes = async () => {
     setLoading(true)
     try {
+      const shopId = await resolveShopId()
       const { data, error } = await supabase
         .from('perfumes')
         .select('*, brands(*)')
+        .eq('shop_id', shopId)
       if (error) throw error
       setPerfumes(data || [])
 
@@ -120,6 +123,7 @@ export default function WishlistPage() {
         .from('store_settings')
         .select('value')
         .eq('key', 'store_name')
+        .eq('shop_id', shopId)
         .maybeSingle()
 
       if (settingsData && settingsData.value) {

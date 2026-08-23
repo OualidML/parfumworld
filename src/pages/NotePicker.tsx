@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { NoteCategory, Note } from '../types/database'
+import { resolveShopId } from '../lib/utils'
 
 import { 
   Flower2, 
@@ -152,9 +153,11 @@ export default function NotePicker() {
         setNotes(notesData || [])
         
         // Fetch General Settings
+        const shopId = await resolveShopId()
         const { data: settingsData } = await supabase
           .from('store_settings')
           .select('key, value')
+          .eq('shop_id', shopId)
 
         if (settingsData) {
           const nameVal = settingsData.find(s => s.key === 'store_name')?.value

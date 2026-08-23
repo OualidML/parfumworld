@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import type { Note } from '../types/database'
+import { resolveShopId } from '../lib/utils'
 import { useWishlist } from '../hooks/useWishlist'
 import { 
   ArrowLeft, 
@@ -136,11 +137,14 @@ export default function Results() {
         setLoading(true)
         setError(null)
 
+        const shopId = await resolveShopId()
+
         // Invoke PostgreSQL RPC matching function with exclusions
         const { data: matchedData, error: matchedErr } = await supabase
           .rpc('match_perfumes', { 
             user_note_ids: selectedNoteIds,
-            excluded_note_ids: excludedNoteIds
+            excluded_note_ids: excludedNoteIds,
+            p_shop_id: shopId
           })
 
         if (matchedErr) throw matchedErr
@@ -159,6 +163,7 @@ export default function Results() {
         const { data: settingsData } = await supabase
           .from('store_settings')
           .select('key, value')
+          .eq('shop_id', shopId)
 
         if (settingsData) {
           const nameVal = settingsData.find(s => s.key === 'store_name')?.value
