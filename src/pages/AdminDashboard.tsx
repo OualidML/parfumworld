@@ -300,6 +300,10 @@ export default function AdminDashboard() {
     if (!selectedAnchorId) return
     setUploadLoadingId(alt.id)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const shopId = session?.user?.id
+      if (!shopId) throw new Error('No active session user')
+
       // 1. Resolve or Create Brand
       let brandId = ''
       const existingBrand = brands.find(b => b.name.toLowerCase() === alt.brand.toLowerCase())
@@ -320,6 +324,7 @@ export default function AdminDashboard() {
       const { data: newPerfume, error: perfumeErr } = await supabase
         .from('perfumes')
         .insert({
+          shop_id: shopId,
           brand_id: brandId,
           name: alt.name,
           gender: 'unisex',
@@ -608,6 +613,10 @@ export default function AdminDashboard() {
     setSaveLoading(true)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const shopId = session?.user?.id
+      if (!shopId) throw new Error('No active session user')
+
       let perfumeId = editingPerfume?.id
 
       if (editingPerfume) {
@@ -621,7 +630,7 @@ export default function AdminDashboard() {
         // Insert new perfume
         const { data: newPerf, error: addErr } = await supabase
           .from('perfumes')
-          .insert(perfumeForm)
+          .insert({ ...perfumeForm, shop_id: shopId })
           .select('id')
           .single()
         if (addErr) throw addErr
@@ -778,7 +787,12 @@ export default function AdminDashboard() {
     setSaveLoading(true)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const shopId = session?.user?.id
+      if (!shopId) throw new Error('No active session user')
+
       const payload = Object.entries(settingsForm).map(([key, value]) => ({
+        shop_id: shopId,
         key,
         value,
         description: `Store setting for ${key}`
