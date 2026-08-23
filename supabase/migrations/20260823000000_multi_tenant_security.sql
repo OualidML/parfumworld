@@ -100,6 +100,9 @@ CREATE POLICY "Public authenticated read brands" ON brands FOR SELECT TO authent
 -- 7. Trigger for Automated Admin and Settings Provisioning
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$ 
+DECLARE
+    r RECORD;
+    new_perfume_id uuid;
 BEGIN   
     -- STRICT ROLE CHECK: Only provision a new database partition if the user is explicitly tagged as a shop owner   
     IF new.raw_user_meta_data->>'role' = 'shop_owner' THEN       
@@ -115,6 +118,27 @@ BEGIN
         (new.id, 'whatsapp_number', '+212600000000', 'WhatsApp phone number for order processing redirection'),       
         (new.id, 'google_maps_link', 'https://maps.google.com', 'Google Maps link to physical store location')       
         ON CONFLICT (shop_id, key) DO NOTHING;   
+
+        -- Clone all perfumes and notes mapping from Master Shop
+        FOR r IN SELECT * FROM public.perfumes WHERE shop_id = 'fbae2651-c18f-4682-99ef-2827c00044ff'::uuid LOOP
+            new_perfume_id := gen_random_uuid();
+            
+            INSERT INTO public.perfumes (
+                id, brand_id, name, gender, concentration, price, volume_ml, family, 
+                season_tags, occasion_tags, in_stock, is_dupe_of, image_url, 
+                description_ar, description_fr, description_en, shop_id
+            ) VALUES (
+                new_perfume_id, r.brand_id, r.name, r.gender, r.concentration, r.price, r.volume_ml, r.family,
+                r.season_tags, r.occasion_tags, r.in_stock, r.is_dupe_of, r.image_url,
+                r.description_ar, r.description_fr, r.description_en, new.id
+            );
+            
+            -- Clone note mappings for this perfume
+            INSERT INTO public.perfume_notes (perfume_id, note_id, layer)
+            SELECT new_perfume_id, note_id, layer
+            FROM public.perfume_notes
+            WHERE perfume_id = r.id;
+        END LOOP;
     END IF;      
     
     RETURN NEW; 
