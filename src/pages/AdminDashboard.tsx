@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import ExternalCatalogImport from '../components/admin/ExternalCatalogImport'
 import { 
   Sparkles, LogOut, Loader2, AlertCircle, TrendingUp, Package, Layers, Settings,
   Plus, Edit2, Trash2, XCircle, Search, Save, X, Upload, DollarSign,
@@ -91,8 +92,8 @@ export default function AdminDashboard() {
   const [authLoading, setAuthLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  // Active Tab: 'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives'
-  const [activeTab, setActiveTab] = useState<'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives'>('stats')
+  // Active Tab: 'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives' | 'import'
+  const [activeTab, setActiveTab] = useState<'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives' | 'import'>('stats')
 
   // Alternatives Finder States
   const [selectedAnchorId, setSelectedAnchorId] = useState<string>('')
@@ -891,7 +892,7 @@ export default function AdminDashboard() {
 
           {/* Navigation Tab Links (Large screens) */}
           <nav className="hidden md:flex items-center gap-1.5 bg-neutral-900/60 p-1 border border-white/5 rounded-xl">
-            {(['stats', 'perfumes', 'notes', 'settings', 'alternatives'] as const).map((tab) => (
+            {(['stats', 'perfumes', 'notes', 'settings', 'alternatives', 'import'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -901,7 +902,7 @@ export default function AdminDashboard() {
                     : 'text-neutral-400 hover:text-white'
                 }`}
               >
-                {tab === 'alternatives' ? 'Reminds Me Of' : t(`tab_${tab}`)}
+                {tab === 'alternatives' ? 'Reminds Me Of' : tab === 'import' ? 'Import from Web' : t(`tab_${tab}`)}
               </button>
             ))}
           </nav>
@@ -920,8 +921,8 @@ export default function AdminDashboard() {
 
       {/* Sub Navigation (Mobile screen) */}
       <div className="md:hidden w-full px-4 pt-4">
-        <div className="grid grid-cols-5 bg-neutral-900/60 p-1 border border-white/5 rounded-xl text-center font-bold">
-          {(['stats', 'perfumes', 'notes', 'settings', 'alternatives'] as const).map((tab) => (
+        <div className="grid grid-cols-6 bg-neutral-900/60 p-1 border border-white/5 rounded-xl text-center font-bold">
+          {(['stats', 'perfumes', 'notes', 'settings', 'alternatives', 'import'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -931,7 +932,7 @@ export default function AdminDashboard() {
                   : 'text-neutral-400'
               }`}
             >
-              {tab === 'alternatives' ? 'Alts' : t(`tab_${tab}`)}
+              {tab === 'alternatives' ? 'Alts' : tab === 'import' ? 'Import' : t(`tab_${tab}`)}
             </button>
           ))}
         </div>
@@ -1601,6 +1602,25 @@ export default function AdminDashboard() {
                       ))}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 6: Import Panel */}
+            {activeTab === 'import' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="flex items-center gap-3 bg-gradient-to-r from-gold-500/10 to-transparent border-l-2 border-gold-500 p-4.5 rounded-r-2xl">
+                  <Plus className="h-5 w-5 text-gold-400 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Import External Perfumes</h3>
+                    <p className="text-[11px] text-neutral-400 font-light mt-0.5">
+                      Search external database catalogs and import perfumes with automated, strict note mapping.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-neutral-900/40 border border-white/5 rounded-3xl p-6 shadow-xl">
+                  <ExternalCatalogImport onImportSuccess={fetchGlobalData} />
                 </div>
               </div>
             )}
