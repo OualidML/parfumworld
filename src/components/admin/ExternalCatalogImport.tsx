@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Search, Loader2, AlertCircle, CheckCircle2, Download } from 'lucide-react'
 
@@ -84,42 +84,50 @@ export default function ExternalCatalogImport({ onImportSuccess }: ExternalCatal
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!searchQuery.trim()) return
+  // Debounced live autocomplete search trigger as user types
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setResults([])
+      setLoading(false)
+      return
+    }
 
     setLoading(true)
     setError(null)
     setSuccess(null)
 
-    try {
-      // 1. Try invoking the Supabase Edge Function
-      const { data, error: funcError } = await supabase.functions.invoke('search-external-perfumes', {
-        body: { query: searchQuery }
-      })
+    const timer = setTimeout(async () => {
+      try {
+        // 1. Try invoking the Supabase Edge Function
+        const { data, error: funcError } = await supabase.functions.invoke('search-external-perfumes', {
+          body: { query: searchQuery }
+        })
 
-      if (funcError || !data) {
-        throw new Error(funcError?.message || "Edge function failed, falling back to local search")
+        if (funcError || !data) {
+          throw new Error(funcError?.message || "Edge function failed, falling back to local search")
+        }
+
+        setResults(data)
+      } catch (err: any) {
+        console.warn("Edge function invoke failed. Performing client-side fallback search:", err.message)
+        
+        // 2. Fallback to searching the local mock catalog client-side
+        const searchVal = searchQuery.toLowerCase().trim()
+        const filteredMocks = MOCK_FALLBACK_CATALOG.filter(item => 
+          item.name.toLowerCase().includes(searchVal) || 
+          item.brand.toLowerCase().includes(searchVal) ||
+          item.top_notes.some(n => n.toLowerCase().includes(searchVal)) ||
+          item.heart_notes.some(n => n.toLowerCase().includes(searchVal)) ||
+          item.base_notes.some(n => n.toLowerCase().includes(searchVal))
+        )
+        setResults(filteredMocks)
+      } finally {
+        setLoading(false)
       }
+    }, 300) // 300ms debounce delay
 
-      setResults(data)
-    } catch (err: any) {
-      console.warn("Edge function invoke failed. Performing client-side fallback search:", err.message)
-      
-      // 2. Fallback to searching the local mock catalog client-side
-      const searchVal = searchQuery.toLowerCase().trim()
-      const filteredMocks = MOCK_FALLBACK_CATALOG.filter(item => 
-        item.name.toLowerCase().includes(searchVal) || 
-        item.brand.toLowerCase().includes(searchVal) ||
-        item.top_notes.some(n => n.toLowerCase().includes(searchVal)) ||
-        item.heart_notes.some(n => n.toLowerCase().includes(searchVal)) ||
-        item.base_notes.some(n => n.toLowerCase().includes(searchVal))
-      )
-      setResults(filteredMocks)
-    } finally {
-      setLoading(false)
-    }
-  }
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const handleImport = async (item: ExternalPerfume) => {
     const importKey = `${item.brand}-${item.name}`
@@ -156,7 +164,7 @@ export default function ExternalCatalogImport({ onImportSuccess }: ExternalCatal
   return (
     <div className="space-y-6">
       {/* Search Input Box */}
-      <form onSubmit={handleSearch} className="flex gap-2">
+      <form onSubmit={(e) => e.preventDefault()} className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-3 h-4 w-4 text-neutral-500" />
           <input
