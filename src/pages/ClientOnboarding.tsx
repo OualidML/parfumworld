@@ -88,7 +88,7 @@ export default function ClientOnboarding() {
       if (signUpError) throw signUpError
 
       if (data?.user) {
-        setSuccess(`Successfully provisioned new shop owner account for: ${clientEmail}. An email confirmation has been sent.`)
+        setSuccess(`Successfully provisioned new shop owner account for: ${clientEmail}. (Note: If email confirmation is enabled in your Supabase Auth settings, they must verify their email. To allow them to log in immediately without verification links, disable "Confirm email" in your Supabase Auth providers dashboard).`)
         setClientEmail('')
         setTempPassword('')
       } else {
