@@ -285,7 +285,7 @@ BEGIN
     END IF;
 
     -- 15. Duro
-    p_id := seed_perfume_helper('Nasomatto', 'Duro', 'male', 'extrait', 185.00, 30, 'Leather', ARRAY['Autumn', 'Winter'], ARRAY['Night', 'Formal'], true, 'An uncompromising, raw, masculine statement of leather and dark woods.', 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=400');
+    p_id := seed_perfume_helper('Nasomatto', 'Duro', 'male', 'parfum', 185.00, 30, 'Leather', ARRAY['Autumn', 'Winter'], ARRAY['Night', 'Formal'], true, 'An uncompromising, raw, masculine statement of leather and dark woods.', 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=400');
     IF p_id IS NOT NULL THEN
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'top' FROM public.notes WHERE name_en ILIKE 'Spices' ON CONFLICT DO NOTHING;
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'middle' FROM public.notes WHERE name_en ILIKE 'Leather' ON CONFLICT DO NOTHING;
@@ -333,7 +333,7 @@ BEGIN
     END IF;
 
     -- 21. Interlude 53
-    p_id := seed_perfume_helper('Amouage', 'Interlude 53', 'male', 'extrait', 500.00, 100, 'Oriental', ARRAY['Winter'], ARRAY['Night', 'Formal'], true, 'An ultra-concentrated 53% dosage of balsamic resins, oregano, leather, and smoky oud.', 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=400');
+    p_id := seed_perfume_helper('Amouage', 'Interlude 53', 'male', 'parfum', 500.00, 100, 'Oriental', ARRAY['Winter'], ARRAY['Night', 'Formal'], true, 'An ultra-concentrated 53% dosage of balsamic resins, oregano, leather, and smoky oud.', 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=400');
     IF p_id IS NOT NULL THEN
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'top' FROM public.notes WHERE name_en ILIKE 'Oregano' OR name_en ILIKE 'Bergamot' ON CONFLICT DO NOTHING;
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'middle' FROM public.notes WHERE name_en ILIKE 'Incense' OR name_en ILIKE 'Opoponax' OR name_en ILIKE 'Amber' ON CONFLICT DO NOTHING;
@@ -389,7 +389,7 @@ BEGIN
     END IF;
 
     -- 28. Oud Maracujá
-    p_id := seed_perfume_helper('Maison Crivelli', 'Oud Maracujá', 'unisex', 'extrait', 290.00, 50, 'Leather', ARRAY['Autumn', 'Winter', 'Spring'], ARRAY['Night', 'Formal'], true, 'Luminous passionfruit contrasting with deep smoky leather and oud.', 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?q=80&w=400');
+    p_id := seed_perfume_helper('Maison Crivelli', 'Oud Maracujá', 'unisex', 'parfum', 290.00, 50, 'Leather', ARRAY['Autumn', 'Winter', 'Spring'], ARRAY['Night', 'Formal'], true, 'Luminous passionfruit contrasting with deep smoky leather and oud.', 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?q=80&w=400');
     IF p_id IS NOT NULL THEN
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'top' FROM public.notes WHERE name_en ILIKE 'Saffron' OR name_en ILIKE 'Rose' ON CONFLICT DO NOTHING;
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'middle' FROM public.notes WHERE name_en ILIKE 'Patchouli' OR name_en ILIKE 'Benzoin' ON CONFLICT DO NOTHING;
@@ -429,7 +429,7 @@ BEGIN
     END IF;
 
     -- 33. The Lover's Tale
-    p_id := seed_perfume_helper('Francesca Bianchi', 'The Lover''s Tale', 'unisex', 'extrait', 145.00, 30, 'Leather', ARRAY['Autumn', 'Winter'], ARRAY['Night', 'Formal'], true, 'A secret intimate romance captured in heavy castoreum, civet, leather, and buttery orris.', 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=400');
+    p_id := seed_perfume_helper('Francesca Bianchi', 'The Lover''s Tale', 'unisex', 'parfum', 145.00, 30, 'Leather', ARRAY['Autumn', 'Winter'], ARRAY['Night', 'Formal'], true, 'A secret intimate romance captured in heavy castoreum, civet, leather, and buttery orris.', 'https://images.unsplash.com/photo-1594035910387-fea47794261f?q=80&w=400');
     IF p_id IS NOT NULL THEN
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'top' FROM public.notes WHERE name_en ILIKE 'Bergamot' OR name_en ILIKE 'Mimosa' ON CONFLICT DO NOTHING;
         INSERT INTO public.perfume_notes (perfume_id, note_id, layer) SELECT p_id, id, 'middle' FROM public.notes WHERE name_en ILIKE 'Iris' OR name_en ILIKE 'Peach' OR name_en ILIKE 'Jasmine' OR name_en ILIKE 'Rose' ON CONFLICT DO NOTHING;
