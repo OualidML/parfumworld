@@ -26,4 +26,8 @@ dist-ssr
 # Supabase
 supabase/.temp/
 supabase/config.toml.bak
+# API keys and other sensitive information
+.streamlit/secrets.toml
 
+
+secrets.toml

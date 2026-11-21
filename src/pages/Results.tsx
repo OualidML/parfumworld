@@ -1,16 +1,19 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import type { Note } from '../types/database'
 import { resolveShopId } from '../lib/utils'
 import { useWishlist } from '../hooks/useWishlist'
-import { 
-  ArrowLeft, 
-  Sparkles, 
-  Award, 
-  Loader2, 
-  Filter, 
+import { useShopSettings } from '../context/ShopSettingsContext'
+import ShopBrandHeader from '../components/ShopBrandHeader'
+import SocialContactMenu from '../components/SocialContactMenu'
+import ExternalLinkModal, { type ExternalLinkTarget } from '../components/ExternalLinkModal'
+import {
+  ArrowLeft,
+  Sparkles,
+  Award,
+  Filter,
   AlertTriangle,
   Tag,
   CheckCircle2,
@@ -55,6 +58,13 @@ export default function Results() {
   const navigate = useNavigate()
   const currentLanguage = i18n.language || 'ar'
   const isRtl = currentLanguage.startsWith('ar')
+  const currentLangCode: 'en' | 'fr' | 'ar' = currentLanguage.startsWith('en')
+    ? 'en'
+    : currentLanguage.startsWith('fr')
+    ? 'fr'
+    : 'ar'
+
+  const resultsGridRef = useRef<HTMLDivElement>(null)
 
   // Import wishlist hook
   const { wishlist, toggleWishlist } = useWishlist()
@@ -72,6 +82,20 @@ export default function Results() {
     return excludeParam ? excludeParam.split(',').filter(Boolean) : []
   }, [excludeParam])
 
+  // Persist active blend note IDs so PerfumeDetails 3-tier pyramid can highlight matching notes
+  useEffect(() => {
+    try {
+      if (selectedNoteIds.length > 0) {
+        sessionStorage.setItem(
+          'parfumworld_active_blend_ids',
+          JSON.stringify(selectedNoteIds)
+        )
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, [selectedNoteIds])
+
   // Component states
   const [perfumes, setPerfumes] = useState<MatchedPerfume[]>([])
   const [notes, setNotes] = useState<Note[]>([])
@@ -81,10 +105,14 @@ export default function Results() {
   // Comparison State
   const [comparedPerfumeIds, setComparedPerfumeIds] = useState<string[]>([])
   const [compareModalOpen, setCompareModalOpen] = useState(false)
-  const [storeName, setStoreName] = useState('ParfumWorld')
-  const [whatsappNumber, setWhatsappNumber] = useState('+212600000000')
   const [sessionUser, setSessionUser] = useState<any>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
+
+  const { shopSettings } = useShopSettings()
+  const [externalLinkTarget, setExternalLinkTarget] = useState<ExternalLinkTarget | null>(null)
+  const sanitizedWhatsappNumber = useMemo(
+    () => (shopSettings.whatsapp_number || '').replace(/[^0-9]/g, ''),
+    [shopSettings.whatsapp_number]
+  )
 
   // Theme State
   const [theme, setTheme] = useState<'dark' | 'light'>(
@@ -103,7 +131,7 @@ export default function Results() {
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
   }
 
   const toggleCompare = (id: string) => {
@@ -124,7 +152,7 @@ export default function Results() {
   const [filterConcentration, setFilterConcentration] = useState<string>('all')
   const [filterInStockOnly, setFilterInStockOnly] = useState<boolean>(false)
 
-  // 1. Fetch matching perfumes and all note descriptions
+  // 1. Fetch matching perfumes and all note descriptions (untouched RPC logic)
   useEffect(() => {
     async function fetchResults() {
       if (selectedNoteIds.length === 0) {
@@ -137,11 +165,11 @@ export default function Results() {
         setLoading(true)
         setError(null)
 
-        const shopId = await resolveShopId()
+        const shopId = resolveShopId()
 
         // Invoke PostgreSQL RPC matching function with exclusions
         const { data: matchedData, error: matchedErr } = await supabase
-          .rpc('match_perfumes', { 
+          .rpc('match_perfumes', {
             user_note_ids: selectedNoteIds,
             excluded_note_ids: excludedNoteIds,
             p_shop_id: shopId
@@ -149,28 +177,16 @@ export default function Results() {
 
         if (matchedErr) throw matchedErr
 
-        // Fetch all scent notes description to map on the card list
+        // Fetch all scent notes description (global + active shop's custom notes) to map on the card list
         const { data: notesData, error: notesErr } = await supabase
           .from('notes')
           .select('*')
+          .or(`shop_id.is.null,shop_id.eq.${shopId}`)
 
         if (notesErr) throw notesErr
 
         setPerfumes(matchedData || [])
         setNotes(notesData || [])
-
-        // Fetch Store Settings
-        const { data: settingsData } = await supabase
-          .from('store_settings')
-          .select('key, value')
-          .eq('shop_id', shopId)
-
-        if (settingsData) {
-          const nameVal = settingsData.find(s => s.key === 'store_name')?.value
-          const waVal = settingsData.find(s => s.key === 'whatsapp_number')?.value
-          if (nameVal) setStoreName(nameVal)
-          if (waVal) setWhatsappNumber(waVal)
-        }
       } catch (err: any) {
         console.error('Error fetching matching results:', err)
         setError(t('db_load_error'))
@@ -186,40 +202,18 @@ export default function Results() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSessionUser(session?.user || null)
-      if (session?.user) {
-        checkAdminStatus(session.user.id)
-      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSessionUser(session?.user || null)
-      if (session?.user) {
-        checkAdminStatus(session.user.id)
-      } else {
-        setIsAdmin(false)
-      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const checkAdminStatus = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('admins')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle()
-      setIsAdmin(!!data)
-    } catch (e) {
-      console.error(e)
-    }
-  }
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setSessionUser(null)
-    setIsAdmin(false)
   }
 
   // Localized retrieval helpers
@@ -238,29 +232,38 @@ export default function Results() {
   // Auto-recovery: choose a note that can be suggested for removal to broaden results
   const suggestRemoveNote = useMemo(() => {
     if (selectedNoteIds.length === 0 || notes.length === 0) return null
-    // Suggest removing the first selected note
     const targetId = selectedNoteIds[0]
     return notes.find(n => n.id === targetId) || null
   }, [selectedNoteIds, notes])
 
-  // Remove suggested note from URL query params
+  // Remove note from URL query params
   const handleRemoveSuggestedNote = (noteId: string) => {
     const updatedIds = selectedNoteIds.filter(id => id !== noteId)
-    setSearchParams({ notes: updatedIds.join(',') })
+    if (updatedIds.length === 0) {
+      navigate('/')
+      return
+    }
+    const nextParams: Record<string, string> = { notes: updatedIds.join(',') }
+    if (excludedNoteIds.length > 0) {
+      nextParams.exclude = excludedNoteIds.join(',')
+    }
+    setSearchParams(nextParams)
   }
 
   // Apply secondary filtering client-side
   const filteredPerfumes = useMemo(() => {
     return perfumes.filter(p => {
-      // 1. Gender Filter
       if (filterGender !== 'all' && p.gender !== filterGender) return false
-      // 2. Concentration Filter
       if (filterConcentration !== 'all' && p.concentration !== filterConcentration) return false
-      // 3. In Stock Filter
       if (filterInStockOnly && !p.in_stock) return false
       return true
     })
   }, [perfumes, filterGender, filterConcentration, filterInStockOnly])
+
+  const selectedNoteObjects = useMemo(
+    () => notes.filter(n => selectedNoteIds.includes(n.id)),
+    [notes, selectedNoteIds]
+  )
 
   const comparedPerfumes = useMemo(() => {
     return perfumes.filter(p => comparedPerfumeIds.includes(p.id))
@@ -270,106 +273,129 @@ export default function Results() {
     if (comparedPerfumes.length < 2) return null
     const p1 = comparedPerfumes[0]
     const p2 = comparedPerfumes[1]
-    
+
     const p1Notes = notes.filter(n => p1.all_note_ids.includes(n.id))
     const p2Notes = notes.filter(n => p2.all_note_ids.includes(n.id))
-    
+
     const shared = p1Notes.filter(n1 => p2Notes.some(n2 => n2.id === n1.id))
     const uniqueP1 = p1Notes.filter(n1 => !shared.some(s => s.id === n1.id))
     const uniqueP2 = p2Notes.filter(n2 => !shared.some(s => s.id === n2.id))
-    
+
     return { shared, uniqueP1, uniqueP2 }
   }, [comparedPerfumes, notes])
 
+  const getDockCtaLabel = (count: number) => {
+    if (currentLangCode === 'ar') {
+      return `عرض ${count} عطور مطابقة`
+    }
+    if (currentLangCode === 'fr') {
+      return `Voir ${count} parfums correspondants`
+    }
+    return `View ${count} matching perfumes`
+  }
+
+  const isDockVisible = selectedNoteObjects.length > 0 && comparedPerfumeIds.length === 0
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-burgundy-950 via-neutral-950 to-black text-white flex flex-col justify-between selection:bg-gold-500 selection:text-black">
-      
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 w-full bg-neutral-950/80 backdrop-blur-lg border-b border-white/5 py-4 px-4 md:px-8 shadow-md">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          
-          {/* Back button */}
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer"
-          >
-            <ArrowLeft className={`h-3.5 w-3.5 ${isRtl ? 'rotate-180' : ''}`} />
-            <span>{t('back_to_picker')}</span>
-          </button>
+    <div
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className="min-h-screen antialiased bg-[#120A07] text-[#F5EFE6] flex flex-col justify-between selection:bg-[#D4AF37] selection:text-[#120A07]"
+    >
+      {/* Top Boutique Header */}
+      <header className="sticky top-0 z-40 w-full bg-[#120A07]/90 backdrop-blur-md border-b border-[#D4AF37]/20 py-3.5 px-4 md:px-8">
+        <div className="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-3">
+          {/* Top-Right (RTL start): Unified Brand Logo & Shop Name */}
+          <ShopBrandHeader onClick={() => navigate('/')} />
 
-          {/* Title */}
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-gold-500 to-burgundy-500 flex items-center justify-center shadow-lg">
-              <Sparkles className="h-4 w-4 text-neutral-900" />
-            </div>
-            <span className="font-serif text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 to-gold-400">
-              {storeName}
-            </span>
-          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1E120D] border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 text-xs text-[#F5EFE6] transition-transform duration-150 active:scale-95 cursor-pointer font-semibold"
+            >
+              <ArrowLeft className={`h-3.5 w-3.5 text-[#D4AF37] ${isRtl ? 'rotate-180' : ''}`} />
+              <span>{t('back_to_picker')}</span>
+            </button>
 
-          <div className="flex items-center gap-3">
+            <SocialContactMenu onSelectTarget={setExternalLinkTarget} />
+
             {/* Wishlist navigation portal */}
             <button
+              type="button"
               onClick={() => navigate('/wishlist')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#1E120D] border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 text-xs text-[#F5EFE6] transition-transform duration-150 active:scale-95 cursor-pointer font-semibold"
             >
-              <Heart className="h-3.5 w-3.5 fill-burgundy-500 text-burgundy-500" />
+              <Heart className="h-3.5 w-3.5 fill-[#D4AF37] text-[#D4AF37]" />
               <span className="hidden sm:inline">{t('wishlist_title')}</span>
             </button>
 
             {/* Theme Toggler */}
             <button
+              type="button"
               onClick={toggleTheme}
-              className="p-2 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-neutral-300 hover:text-white transition-all cursor-pointer shadow-md flex items-center justify-center"
+              className="p-2 rounded-full bg-[#1E120D] border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 text-[#F5EFE6] transition-transform duration-150 active:scale-95 cursor-pointer flex items-center justify-center"
               aria-label="Toggle Theme"
             >
               {theme === 'dark' ? (
-                <Sun className="h-3.5 w-3.5 text-gold-400" />
+                <Sun className="h-3.5 w-3.5 text-[#F9E29C]" />
               ) : (
-                <Moon className="h-3.5 w-3.5 text-neutral-850" />
+                <Moon className="h-3.5 w-3.5 text-[#120A07]" />
               )}
             </button>
 
             {/* Auth Widget */}
             {sessionUser ? (
-              <div className="flex items-center gap-1.5 bg-neutral-950/90 border border-white/10 rounded-full p-0.5 shadow-md">
-                {isAdmin && (
-                  <button
-                    onClick={() => navigate('/admin')}
-                    className="px-2.5 py-1 rounded-full bg-gold-500/10 text-[9px] text-gold-400 font-extrabold hover:bg-gold-500/20 transition-all cursor-pointer"
-                  >
-                    Admin
-                  </button>
-                )}
+              <div className="flex items-center gap-1.5 bg-[#1E120D] border border-[#D4AF37]/20 rounded-full p-1">
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="px-2.5 py-1 rounded-full hover:bg-red-500/10 text-[9px] text-neutral-400 hover:text-red-400 transition-all cursor-pointer font-bold flex items-center gap-1"
+                  className="px-2.5 py-1 rounded-full hover:bg-red-500/10 text-[10px] text-[#A8988A] hover:text-red-300 transition-colors cursor-pointer font-bold flex items-center gap-1"
                 >
                   <LogOut className="h-3 w-3" />
-                  <span className="hidden md:inline">Sign Out</span>
+                  <span className="hidden md:inline">{isRtl ? 'خروج' : 'Sign Out'}</span>
                 </button>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => navigate('/wishlist')}
-                className="px-3 py-1.5 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer font-bold"
+                className="px-3.5 py-2 rounded-full bg-[#1E120D] border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 text-xs text-[#A8988A] hover:text-[#F5EFE6] transition-transform duration-150 active:scale-95 cursor-pointer font-semibold"
               >
-                Sign In
+                {isRtl ? 'دخول' : 'Sign In'}
               </button>
             )}
           </div>
-
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6 md:gap-8 my-4">
-        
-        {/* Loading Indicator */}
+      {/* Main Container (pb-36 md:pb-28 when dock is visible) */}
+      <main
+        className={`flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 flex flex-col gap-6 md:gap-8 my-4 ${
+          isDockVisible || comparedPerfumeIds.length > 0 ? 'pb-36 md:pb-28' : ''
+        }`}
+      >
+        {/* Dark Espresso Shimmer Skeletons during Catalog Loading */}
         {loading && (
-          <div className="flex-1 flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="h-10 w-10 text-gold-500 animate-spin" />
-            <p className="text-neutral-400 text-sm italic font-light">{t('loading_profiles')}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="oud-card-surface rounded-2xl overflow-hidden flex flex-col"
+              >
+                <div className="h-56 w-full oud-skeleton-shimmer" />
+                <div className="p-6 space-y-3">
+                  <div className="h-3 w-24 rounded oud-skeleton-shimmer" />
+                  <div className="h-5 w-3/4 rounded oud-skeleton-shimmer" />
+                  <div className="h-3 w-full rounded oud-skeleton-shimmer" />
+                  <div className="flex gap-1.5 pt-2">
+                    <div className="h-5 w-14 rounded-full oud-skeleton-shimmer" />
+                    <div className="h-5 w-16 rounded-full oud-skeleton-shimmer" />
+                    <div className="h-5 w-12 rounded-full oud-skeleton-shimmer" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -379,10 +405,11 @@ export default function Results() {
             <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-400">
               <AlertTriangle className="h-6 w-6" />
             </div>
-            <p className="text-sm text-neutral-300 font-medium">{error}</p>
+            <p className="text-sm text-[#F5EFE6] font-medium">{error}</p>
             <button
+              type="button"
               onClick={() => navigate('/')}
-              className="mt-2 text-xs text-gold-400 underline hover:text-white"
+              className="mt-2 text-xs text-[#F9E29C] underline hover:text-white cursor-pointer"
             >
               {t('back_to_picker')}
             </button>
@@ -394,10 +421,10 @@ export default function Results() {
           <>
             {/* Secondary filters bar */}
             {perfumes.length > 0 && (
-              <div className="bg-neutral-900/40 border border-white/5 backdrop-blur-md rounded-3xl p-5 md:p-6 shadow-xl flex flex-col gap-5">
-                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
-                  <Filter className="h-4 w-4 text-gold-500" />
-                  <h3 className="text-xs uppercase tracking-wider font-bold text-gold-400">
+              <div className="oud-card-surface rounded-2xl p-5 md:p-6 flex flex-col gap-5">
+                <div className="flex items-center gap-2 border-b border-[#D4AF37]/15 pb-2.5">
+                  <Filter className="h-4 w-4 text-[#D4AF37]" />
+                  <h3 className="font-arabic-display text-base font-bold gold-metallic-text">
                     {t('filters_header')}
                   </h3>
                 </div>
@@ -405,16 +432,17 @@ export default function Results() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-end text-start">
                   {/* 1. Gender Filter */}
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs text-neutral-400 font-medium">{t('gender_label')}</label>
-                    <div className="flex bg-neutral-950/80 p-1 border border-white/5 rounded-xl gap-1">
+                    <label className="text-xs text-[#A8988A] font-medium">{t('gender_label')}</label>
+                    <div className="flex bg-[#120A07] p-1 border border-[#D4AF37]/15 rounded-xl gap-1">
                       {['all', 'male', 'female', 'unisex'].map((g) => (
                         <button
                           key={g}
+                          type="button"
                           onClick={() => setFilterGender(g)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-transform duration-150 active:scale-95 cursor-pointer ${
                             filterGender === g
-                              ? 'bg-burgundy-750 text-gold-400 font-bold shadow-md'
-                              : 'text-neutral-400 hover:text-neutral-200'
+                              ? 'bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C] font-bold'
+                              : 'text-[#A8988A] hover:text-[#F5EFE6]'
                           }`}
                         >
                           {g === 'all' ? t('gender_all') : t(`gender_options.${g}`)}
@@ -425,11 +453,11 @@ export default function Results() {
 
                   {/* 2. Concentration Filter */}
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs text-neutral-400 font-medium">{t('concentration_label')}</label>
+                    <label className="text-xs text-[#A8988A] font-medium">{t('concentration_label')}</label>
                     <select
                       value={filterConcentration}
                       onChange={(e) => setFilterConcentration(e.target.value)}
-                      className="w-full bg-neutral-950/90 border border-white/10 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-gold-500/50"
+                      className="w-full bg-[#120A07] border border-[#D4AF37]/20 rounded-xl p-2.5 text-xs text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
                     >
                       <option value="all">{t('concentration_all')}</option>
                       <option value="parfum">Parfum</option>
@@ -446,9 +474,12 @@ export default function Results() {
                       type="checkbox"
                       checked={filterInStockOnly}
                       onChange={(e) => setFilterInStockOnly(e.target.checked)}
-                      className="w-4 h-4 rounded border-white/10 bg-neutral-950 text-gold-500 focus:ring-0 focus:ring-offset-0 accent-gold-500 cursor-pointer"
+                      className="w-4 h-4 rounded border-[#D4AF37]/30 bg-[#120A07] text-[#D4AF37] focus:ring-0 focus:ring-offset-0 accent-[#D4AF37] cursor-pointer"
                     />
-                    <label htmlFor="inStockCheck" className="text-xs text-neutral-300 hover:text-white cursor-pointer select-none font-medium">
+                    <label
+                      htmlFor="inStockCheck"
+                      className="text-xs text-[#F5EFE6] cursor-pointer select-none font-medium"
+                    >
                       {t('in_stock_only')}
                     </label>
                   </div>
@@ -457,102 +488,139 @@ export default function Results() {
             )}
 
             {/* Matching Result Cards List */}
-            {(filteredPerfumes.length > 0 || selectedNoteIds.length > 0) ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                
+            {filteredPerfumes.length > 0 || selectedNoteIds.length > 0 ? (
+              <div
+                ref={resultsGridRef}
+                id="results-grid"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 scroll-mt-24"
+              >
                 {/* 1. Dynamic Bespoke Custom Blend Card */}
                 {selectedNoteIds.length > 0 && (
-                  <div className="group bg-gradient-to-br from-burgundy-950/20 via-neutral-950 to-neutral-900/20 border border-gold-500/40 hover:border-gold-500 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between relative cursor-default min-h-[350px] p-0.5">
-                    
-                    {/* Top visual graphic area */}
-                    <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-neutral-950 to-neutral-900 flex flex-col items-center justify-center text-center p-6 border-b border-gold-500/10">
-                      <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-gold-500 to-burgundy-500 flex items-center justify-center shadow-lg shadow-gold-500/20 animate-pulse mb-3 z-10">
-                        <Sparkles className="h-6 w-6 text-neutral-900" />
+                  <div className="group oud-card-surface oud-card-reveal hover:border-[#D4AF37]/60 rounded-2xl overflow-hidden transition-colors duration-300 flex flex-col justify-between relative cursor-default">
+                    {/* Top Spotlight Stage */}
+                    <div className="relative h-56 flex flex-col items-center justify-center text-center p-6 overflow-hidden isolate rounded-t-2xl bg-[#160D09] border-b border-[#D4AF37]/15">
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background:
+                            'radial-gradient(circle at center, rgba(212,175,55,0.20) 0%, transparent 68%)'
+                        }}
+                      />
+                      <div className="h-14 w-14 rounded-full bg-[#2D1B14] border border-[#D4AF37] flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.25)] mb-3 relative z-10">
+                        <Sparkles className="h-6 w-6 text-[#F9E29C]" />
                       </div>
-                      <span className="text-[10px] uppercase tracking-widest text-gold-400 font-extrabold z-10">
+                      <span className="text-[11px] text-[#D4AF37] font-extrabold relative z-10">
                         {isRtl ? 'تركيبة مخصصة' : 'Bespoke Fragrance'}
                       </span>
-                      <h3 className="font-serif text-base font-black text-white mt-1.5 z-10">
-                        {isRtl ? 'تركيبتك الخاصة المبتكرة' : 'Your Custom Scent Blend'}
+                      <h3 className="font-arabic-display text-xl font-bold gold-metallic-text mt-1 relative z-10">
+                        {isRtl ? 'توليفتك الخاصة' : 'Your Custom Scent Blend'}
                       </h3>
-                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent pointer-events-none z-0" />
                     </div>
 
                     {/* Content details */}
                     <div className="p-6 flex-1 flex flex-col justify-between gap-5 text-start">
                       <div className="flex flex-col gap-3">
-                        <div className="flex justify-between items-center text-[10px] uppercase tracking-wider font-bold">
-                          <span className="text-gold-500">
-                            {isRtl ? 'المكونات المحددة لك' : 'Your Selected Scent Profile'}
+                        <div className="flex justify-between items-center text-[11px] font-bold">
+                          <span className="text-[#D4AF37]">
+                            {isRtl ? 'النوتات المختارة' : 'Selected Scent Profile'}
                           </span>
                         </div>
-                        
+
                         {/* Notes list chips */}
-                        <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto pr-1">
-                          {notes
-                            .filter(n => selectedNoteIds.includes(n.id))
-                            .map((note) => (
-                              <span 
-                                key={note.id}
-                                className="px-2 py-0.5 rounded-full bg-gold-500/10 border border-gold-500/20 text-[9px] font-semibold text-gold-400"
-                              >
-                                {getLocalizedName(note)}
-                              </span>
-                            ))}
+                        <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto no-scrollbar pr-1">
+                          {selectedNoteObjects.map((note) => (
+                            <span
+                              key={note.id}
+                              className="px-2.5 py-0.5 rounded-full bg-[#2D1B14] border border-[#D4AF37] text-[10px] font-semibold text-[#F9E29C]"
+                            >
+                              {getLocalizedName(note)}
+                            </span>
+                          ))}
                         </div>
 
-                        <p className="text-xs text-neutral-400 leading-relaxed mt-1 font-light">
-                          {isRtl 
-                            ? 'عطر فريد ومميز يقوم خبير العطور لدينا بتركيبه وخلطه فورياً في المحل بنسب دقيقة جداً ومخصصة لك بناءً على اختيارك.' 
-                            : 'A unique bespoke perfume blended on-demand in our boutique, custom-crafted based on your exact note selection.'}
+                        <p className="text-xs text-[#A8988A] leading-relaxed mt-1">
+                          {isRtl
+                            ? 'تركيبة عطرية فاخرة تُحضّر خصيصاً لك بنسب متوازنة وفق اختيارك.'
+                            : 'A bespoke perfume blended on-demand in our boutique, crafted around your exact selection.'}
                         </p>
                       </div>
 
-                      {/* WhatsApp order action */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const selectedNotesObj = notes.filter(n => selectedNoteIds.includes(n.id))
-                          const notesStr = selectedNotesObj.map(n => getLocalizedName(n)).join(', ')
-                          const messageText = isRtl
-                            ? `مرحباً، أود طلب تركيب عطري الخاص بالمكونات التالية: ${notesStr}، والاستفسار عن السعر.`
-                            : `Hello, I would like to order a bespoke custom blend with the following notes: ${notesStr}, and ask about the price.`
-                          const encodedText = encodeURIComponent(messageText)
-                          window.open(`https://wa.me/${whatsappNumber.replace('+', '')}?text=${encodedText}`, '_blank')
-                        }}
-                        className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02]"
-                      >
-                        <MessageSquare className="h-4 w-4 text-neutral-950" />
-                        <span>{isRtl ? 'اطلب تركيبتك الخاصة الآن' : 'Pre-order Custom Blend'}</span>
-                      </button>
+                      {/* WhatsApp order action (Direct launch when whatsapp_number is configured) */}
+                      {sanitizedWhatsappNumber && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const activeStoreName = shopSettings.shop_name?.trim() || 'ParfumWorld'
+                            const notesStr = selectedNoteObjects
+                              .map(n => getLocalizedName(n))
+                              .join(', ')
+                            const messageText = isRtl
+                              ? `مرحباً ${activeStoreName}، أود طلب تركيب عطري الخاص بالمكونات التالية: ${notesStr}.`
+                              : `Hello ${activeStoreName}, I would like to order a bespoke custom blend with the following notes: ${notesStr}.`
+                            const encodedText = encodeURIComponent(messageText)
+                            window.open(
+                              `https://wa.me/${sanitizedWhatsappNumber}?text=${encodedText}`,
+                              '_blank',
+                              'noopener,noreferrer'
+                            )
+                          }}
+                          className="w-full py-3 rounded-xl gold-metallic-bg font-extrabold text-xs shadow-lg flex items-center justify-center gap-2 transition-transform duration-150 active:scale-95 cursor-pointer"
+                        >
+                          <MessageSquare className="h-4 w-4 text-[#120A07]" />
+                          <span>{isRtl ? 'اطلب تركيبتك الخاصة' : 'Order Custom Blend'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {filteredPerfumes.map((perfume) => {
-                  const isFullMatch = Number(perfume.match_score) >= 100.0
+                {/* 2. Boutique Perfume Cards (Spotlight Framing, Match Badges, Staggered Reveal) */}
+                {filteredPerfumes.map((perfume, idx) => {
+                  const roundedScore = Math.round(perfume.match_score)
                   return (
-                    <div 
+                    <div
                       key={perfume.id}
-                      onClick={() => navigate(`/perfume/${perfume.id}`)}
-                      className="group bg-neutral-900/30 border border-white/5 hover:border-gold-500/25 rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 flex flex-col justify-between relative cursor-pointer"
+                      style={{ animationDelay: `${Math.min(idx, 7) * 45}ms` }}
+                      onClick={() =>
+                        navigate(
+                          `/perfume/${perfume.id}${
+                            selectedNoteIds.length > 0 ? `?notes=${selectedNoteIds.join(',')}` : ''
+                          }`
+                        )
+                      }
+                      className="group oud-card-surface oud-card-reveal hover:border-[#D4AF37]/50 rounded-2xl overflow-hidden transition-colors duration-300 flex flex-col justify-between relative cursor-pointer"
                     >
-                      {/* Image container & Match Badge */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-neutral-950 flex items-center justify-center text-neutral-600 font-serif">
-                        <span className="absolute text-xs tracking-wider uppercase">No Image</span>
-                        {perfume.image_url && (
-                          <img 
-                            src={perfume.image_url} 
+                      {/* Spotlight Bottle Stage */}
+                      <div className="relative h-56 flex items-center justify-center p-4 overflow-hidden isolate rounded-t-2xl bg-[#160D09]">
+                        {/* Soft radial golden spotlight behind bottle */}
+                        <div
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            background:
+                              'radial-gradient(circle at center, rgba(212,175,55,0.20) 0%, transparent 68%)'
+                          }}
+                        />
+
+                        {perfume.image_url ? (
+                          <img
+                            src={perfume.image_url}
                             alt={perfume.name}
                             loading="lazy"
                             onError={(e) => {
-                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.style.display = 'none'
                             }}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 z-10"
+                            className="object-contain max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.85)] group-hover:scale-105 transition-transform duration-500 relative z-10"
                           />
+                        ) : (
+                          <span
+                            dir="ltr"
+                            className="font-latin-luxury text-xs uppercase tracking-[0.2em] text-[#A8988A]/50 relative z-10"
+                          >
+                            No Image
+                          </span>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent z-10 pointer-events-none" />
-                        
+
                         {/* Wishlist Toggle Heart */}
                         <button
                           type="button"
@@ -560,29 +628,39 @@ export default function Results() {
                             e.stopPropagation()
                             toggleWishlist(perfume.id)
                           }}
-                          className={`absolute top-4 ${isRtl ? 'right-4' : 'left-4'} z-20 p-2 rounded-full bg-black/60 border border-white/10 text-neutral-400 hover:text-burgundy-400 transition-all cursor-pointer`}
+                          className={`absolute top-3.5 ${
+                            isRtl ? 'right-3.5' : 'left-3.5'
+                          } z-20 p-2 rounded-full bg-[#1E120D] border border-[#D4AF37]/25 text-[#A8988A] hover:text-[#F9E29C] hover:border-[#D4AF37] transition-transform duration-150 active:scale-95 cursor-pointer`}
                         >
-                          <Heart className={`h-4 w-4 ${isWishlisted(perfume.id) ? 'fill-burgundy-500 text-burgundy-500' : ''}`} />
+                          <Heart
+                            className={`h-4 w-4 ${
+                              isWishlisted(perfume.id) ? 'fill-[#D4AF37] text-[#D4AF37]' : ''
+                            }`}
+                          />
                         </button>
 
-                        {/* Match Score Badge */}
-                        <div className={`absolute top-4 ${isRtl ? 'left-4' : 'right-4'} z-10`}>
-                          {isFullMatch ? (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gold-500/90 backdrop-blur-md text-neutral-950 font-bold text-xs shadow-lg animate-pulse">
-                              {t('full_match')}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-burgundy-750/90 border border-gold-500/30 backdrop-blur-md text-gold-400 font-bold text-xs shadow-lg">
-                              {t('match_percentage', { percentage: Math.round(perfume.match_score) })}
-                            </span>
-                          )}
+                        {/* Smart Match Badge (Crisp Gold Pill, Zero backdrop-blur) */}
+                        <div
+                          className={`absolute top-3.5 ${
+                            isRtl ? 'left-3.5' : 'right-3.5'
+                          } z-20`}
+                        >
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full gold-metallic-bg font-extrabold text-xs shadow-md">
+                            {isRtl
+                              ? `تطابق ${roundedScore}%`
+                              : t('match_percentage', { percentage: roundedScore })}
+                          </span>
                         </div>
 
                         {/* Dupe Badge */}
                         {perfume.is_dupe_of && (
-                          <div className={`absolute bottom-3 ${isRtl ? 'right-3' : 'left-3'} z-10 flex items-center gap-1.5 bg-black/75 border border-white/10 rounded-lg px-2.5 py-1 backdrop-blur-sm`}>
-                            <Tag className="h-3 w-3 text-gold-400" />
-                            <span className="text-[10px] text-neutral-300 font-medium">
+                          <div
+                            className={`absolute bottom-3 ${
+                              isRtl ? 'right-3' : 'left-3'
+                            } z-20 flex items-center gap-1.5 bg-[#1E120D] border border-[#D4AF37]/25 rounded-lg px-2.5 py-1`}
+                          >
+                            <Tag className="h-3 w-3 text-[#D4AF37]" />
+                            <span className="text-[10px] text-[#F5EFE6] font-medium">
                               {t('dupe_badge_text', { perfume: perfume.is_dupe_of })}
                             </span>
                           </div>
@@ -591,17 +669,22 @@ export default function Results() {
 
                       {/* Details Content */}
                       <div className="p-6 flex-1 flex flex-col justify-between gap-5">
-                        <div className="flex flex-col gap-2.5">
-                          {/* Brand and Stock Status */}
-                          <div className="flex justify-between items-center text-[10px] uppercase tracking-wider font-semibold">
-                            <span className="text-gold-400">{perfume.brand_name}</span>
-                            {perfume.in_stock ? (
-                              <span className="text-emerald-400 flex items-center gap-1 text-[9px]">
+                        <div className="flex flex-col gap-2">
+                          {/* Latin Luxury Brand Name and Stock Status */}
+                          <div className="flex justify-between items-center text-[11px] font-semibold">
+                            <span
+                              dir="ltr"
+                              className="font-latin-luxury uppercase tracking-[0.2em] text-[#D4AF37]/80"
+                            >
+                              {perfume.brand_name}
+                            </span>
+                            {perfume.in_stock !== false ? (
+                              <span className="text-emerald-400 flex items-center gap-1 text-[10px]">
                                 <CheckCircle2 className="h-3 w-3" />
                                 {t('in_stock')}
                               </span>
                             ) : (
-                              <span className="text-neutral-500 flex items-center gap-1 text-[9px]">
+                              <span className="text-[#A8988A]/60 flex items-center gap-1 text-[10px]">
                                 <Package className="h-3 w-3" />
                                 {t('out_of_stock')}
                               </span>
@@ -609,24 +692,23 @@ export default function Results() {
                           </div>
 
                           {/* Perfume Name */}
-                          <h4 className="font-serif text-lg font-bold text-white group-hover:text-gold-400 transition-colors text-start">
+                          <h4 className="font-serif text-lg font-bold text-[#F5EFE6] group-hover:text-[#F9E29C] transition-colors text-start">
                             {perfume.name}
                           </h4>
 
                           {/* Description */}
-                          <p className="text-xs text-neutral-400 leading-relaxed font-light line-clamp-2 text-start">
+                          <p className="text-xs text-[#A8988A] leading-relaxed line-clamp-2 text-start">
                             {getLocalizedDescription(perfume)}
                           </p>
                         </div>
 
                         {/* Note Comparison Grid */}
-                        <div className="border-t border-white/5 pt-4 text-start">
-                          <span className="text-[9px] uppercase tracking-wider font-semibold text-neutral-400 flex items-center gap-1 mb-2.5">
-                            <Layers className="h-3 w-3 text-gold-500" />
+                        <div className="border-t border-[#D4AF37]/15 pt-4 text-start">
+                          <span className="text-[10px] font-semibold text-[#A8988A] flex items-center gap-1 mb-2.5">
+                            <Layers className="h-3 w-3 text-[#D4AF37]" />
                             {t('scent_pyramid_header')}
                           </span>
                           <div className="flex flex-wrap gap-1.5">
-                            {/* Loop over notes related to the perfume */}
                             {notes
                               .filter((note) => perfume.all_note_ids.includes(note.id))
                               .map((note) => {
@@ -634,10 +716,10 @@ export default function Results() {
                                 return (
                                   <span
                                     key={note.id}
-                                    className={`px-2 py-0.5 rounded-full text-[9px] font-semibold border ${
+                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
                                       isMatched
-                                        ? 'bg-burgundy-750/30 border-gold-500/40 text-gold-400 shadow-sm shadow-gold-500/5'
-                                        : 'bg-black/10 border-white/5 text-neutral-500'
+                                        ? 'bg-[#2D1B14] border-[#D4AF37] text-[#F9E29C]'
+                                        : 'bg-[#160D09] border-[#A8988A]/20 text-[#A8988A]'
                                     }`}
                                   >
                                     {getLocalizedName(note)}
@@ -647,67 +729,68 @@ export default function Results() {
                           </div>
                         </div>
 
-                        {/* Footer details (price, ml, compare selector) */}
-                        <div className="border-t border-white/5 pt-4 flex justify-between items-center">
-                          <div 
+                        {/* Footer details (volume, concentration, compare selector) */}
+                        <div className="border-t border-[#D4AF37]/15 pt-4 flex justify-between items-center">
+                          <div
                             onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-2"
                           >
-                            <input 
+                            <input
                               type="checkbox"
                               id={`compare-${perfume.id}`}
                               checked={comparedPerfumeIds.includes(perfume.id)}
                               onChange={() => toggleCompare(perfume.id)}
-                              className="w-4 h-4 rounded border-white/10 bg-neutral-950 text-gold-500 focus:ring-0 focus:ring-offset-0 accent-gold-500 cursor-pointer"
+                              className="w-4 h-4 rounded border-[#D4AF37]/30 bg-[#120A07] text-[#D4AF37] focus:ring-0 focus:ring-offset-0 accent-[#D4AF37] cursor-pointer"
                             />
-                            <label 
+                            <label
                               htmlFor={`compare-${perfume.id}`}
-                              className="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 hover:text-white cursor-pointer select-none"
+                              className="text-[11px] font-semibold text-[#A8988A] hover:text-[#F5EFE6] cursor-pointer select-none"
                             >
                               {t('compare_trigger')}
                             </label>
                           </div>
-                          
+
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-neutral-450 font-mono">
+                            <span dir="ltr" className="text-[10px] text-[#A8988A] font-mono">
                               {perfume.volume_ml}ml • {perfume.concentration.toUpperCase()}
                             </span>
                           </div>
                         </div>
                       </div>
-
                     </div>
                   )
                 })}
               </div>
             ) : (
               /* Smart Empty State Recovery */
-              <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 max-w-xl mx-auto text-center bg-neutral-900/20 border border-white/5 rounded-3xl p-8 shadow-xl">
-                <div className="h-16 w-16 rounded-full bg-burgundy-950/40 border border-gold-500/20 flex items-center justify-center text-gold-400 mb-6 shadow-inner shadow-black">
+              <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 max-w-xl mx-auto text-center oud-card-surface rounded-3xl p-8">
+                <div className="h-16 w-16 rounded-full bg-[#2D1B14] border border-[#D4AF37]/40 flex items-center justify-center text-[#F9E29C] mb-6">
                   <AlertTriangle className="h-8 w-8" />
                 </div>
-                
-                <h3 className="text-xl font-serif font-bold text-white mb-2 leading-tight">
+
+                <h3 className="font-arabic-display text-2xl font-bold text-[#F5EFE6] mb-2 leading-tight">
                   {t('results_empty_state')}
                 </h3>
-                
-                <p className="text-sm text-neutral-400 leading-relaxed mb-8 max-w-md mx-auto font-light">
+
+                <p className="text-sm text-[#A8988A] leading-relaxed mb-8 max-w-md mx-auto">
                   {t('results_empty_desc')}
                 </p>
 
-                {/* Offer auto removal note action */}
                 {suggestRemoveNote && (
-                  <div className="w-full bg-black/40 border border-white/5 rounded-2xl p-5 flex flex-col items-center gap-3">
-                    <span className="text-[10px] text-gold-400 uppercase tracking-widest font-bold flex items-center gap-1.5">
-                      <Heart className="h-3.5 w-3.5 fill-gold-500 text-gold-500" />
+                  <div className="w-full bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-5 flex flex-col items-center gap-3">
+                    <span className="text-xs text-[#D4AF37] font-bold flex items-center gap-1.5">
+                      <Heart className="h-3.5 w-3.5 fill-[#D4AF37] text-[#D4AF37]" />
                       {t('suggest_note_prompt')}
                     </span>
                     <button
+                      type="button"
                       onClick={() => handleRemoveSuggestedNote(suggestRemoveNote.id)}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-burgundy-750 hover:bg-burgundy-500 border border-gold-500/30 text-gold-400 hover:text-white font-bold text-xs transition-all active:scale-[0.98] cursor-pointer shadow-lg shadow-burgundy-950/80"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#2D1B14] hover:bg-[#3E2723] border border-[#D4AF37] text-[#F9E29C] font-bold text-xs transition-transform duration-150 active:scale-95 cursor-pointer"
                     >
                       <Undo className="h-3.5 w-3.5" />
-                      <span>{t('remove_note_action', { note: getLocalizedName(suggestRemoveNote) })}</span>
+                      <span>
+                        {t('remove_note_action', { note: getLocalizedName(suggestRemoveNote) })}
+                      </span>
                     </button>
                   </div>
                 )}
@@ -715,29 +798,85 @@ export default function Results() {
             )}
           </>
         )}
-
       </main>
 
       {/* Footer */}
-      <footer className="w-full max-w-6xl mx-auto text-center py-6 border-t border-white/5 backdrop-blur-sm flex flex-col md:flex-row justify-between items-center gap-4 text-neutral-500 text-xs font-light px-4">
-        <p>© 2026 ParfumWorld. All rights reserved.</p>
+      <footer className="w-full max-w-6xl mx-auto text-center py-6 border-t border-[#D4AF37]/15 flex flex-col md:flex-row justify-between items-center gap-4 text-[#A8988A] text-xs px-4">
+        <p>© 2026 {shopSettings.shop_name?.trim() || 'ParfumWorld'}. All rights reserved.</p>
         <div className="flex items-center gap-2">
-          <Award className="h-4 w-4 text-gold-500" />
-          <span>Designed with premium aesthetics</span>
+          <Award className="h-4 w-4 text-[#D4AF37]" />
+          <span>Designed with Royal Oud & Gold aesthetics</span>
         </div>
       </footer>
 
-      {/* FLOATING COMPARE BAR */}
+      {/* External Link Confirmation Modal (Strictly for Social Media links) */}
+      <ExternalLinkModal
+        target={externalLinkTarget}
+        onClose={() => setExternalLinkTarget(null)}
+      />
+
+      {/* Sticky Bottom "Your Blend" Dock */}
+      {isDockVisible && (
+        <div
+          dir={isRtl ? 'rtl' : 'ltr'}
+          className="fixed bottom-0 inset-x-0 z-40 bg-[#160C08]/90 backdrop-blur-xl border-t border-[#D4AF37]/25 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_35px_rgba(0,0,0,0.8)]"
+        >
+          <div className="max-w-6xl mx-auto px-4 md:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Horizontally Scrollable Removable Gold Chips */}
+            <div className="w-full sm:flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+              {selectedNoteObjects.map((note) => (
+                <button
+                  key={note.id}
+                  type="button"
+                  onClick={() => handleRemoveSuggestedNote(note.id)}
+                  className="flex items-center gap-1.5 bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C] rounded-full px-3 py-1 shrink-0 text-xs font-bold hover:bg-[#3E2723] transition-transform duration-150 active:scale-95 cursor-pointer"
+                >
+                  <span>{getLocalizedName(note)}</span>
+                  <X className="h-3 w-3 text-[#D4AF37]" />
+                </button>
+              ))}
+            </div>
+
+            {/* Dock Actions: Localized Clear All + Live Match Scroll Button */}
+            <div className="w-full sm:w-auto flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                className="px-3 py-2 text-xs font-semibold text-[#A8988A] hover:text-[#F9E29C] transition-colors cursor-pointer"
+              >
+                {t('clear_all')}
+              </button>
+
+              <button
+                type="button"
+                disabled={filteredPerfumes.length === 0}
+                onClick={() =>
+                  resultsGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full gold-metallic-bg font-extrabold text-xs sm:text-sm shadow-[0_0_20px_rgba(212,175,55,0.3)] transition-transform duration-150 active:scale-95 cursor-pointer disabled:opacity-40 disabled:pointer-events-none disabled:cursor-not-allowed"
+              >
+                <span>{getDockCtaLabel(filteredPerfumes.length)}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Compare Bar */}
       {comparedPerfumeIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/95 border border-gold-500/35 px-6 py-4 rounded-3xl flex items-center justify-between gap-6 shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300 w-11/12 max-w-md font-sans">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#160C08]/95 border border-[#D4AF37]/40 px-6 py-4 rounded-3xl flex items-center justify-between gap-6 shadow-2xl backdrop-blur-xl w-11/12 max-w-md font-sans">
           <div className="text-start">
-            <p className="text-xs text-white font-bold">
-              {comparedPerfumeIds.length === 1 
-                ? "Select one more perfume to compare" 
+            <p className="text-xs text-[#F5EFE6] font-bold">
+              {comparedPerfumeIds.length === 1
+                ? isRtl
+                  ? 'اختر عطراً آخر للمقارنة'
+                  : 'Select one more perfume to compare'
+                : isRtl
+                ? `تم اختيار عطرين للمقارنة`
                 : `${comparedPerfumeIds.length} Perfumes Selected`}
             </p>
-            <p className="text-[10px] text-neutral-400 mt-0.5">
-              Compare features and scent pyramids side-by-side
+            <p className="text-[10px] text-[#A8988A] mt-0.5">
+              {isRtl ? 'قارن المكونات والتركيز جنباً إلى جنب' : 'Compare scent pyramids side-by-side'}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -745,7 +884,7 @@ export default function Results() {
               <button
                 type="button"
                 onClick={() => setCompareModalOpen(true)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-extrabold text-xs cursor-pointer shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                className="px-4 py-2 rounded-xl gold-metallic-bg font-extrabold text-xs cursor-pointer shadow-lg transition-transform duration-150 active:scale-95"
               >
                 {t('compare_trigger')}
               </button>
@@ -753,7 +892,7 @@ export default function Results() {
             <button
               type="button"
               onClick={() => setComparedPerfumeIds([])}
-              className="text-[10px] text-neutral-400 hover:text-white underline font-semibold cursor-pointer"
+              className="text-[10px] text-[#A8988A] hover:text-[#F9E29C] underline font-semibold cursor-pointer"
             >
               {t('clear_all')}
             </button>
@@ -761,155 +900,167 @@ export default function Results() {
         </div>
       )}
 
-      {/* SIDE-BY-SIDE COMPARISON MODAL OVERLAY */}
+      {/* Side-by-Side Comparison Modal Overlay */}
       {compareModalOpen && comparedPerfumes.length === 2 && comparisonDetails && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-neutral-900 border border-white/10 rounded-3xl w-full max-w-4xl shadow-2xl my-8 flex flex-col justify-between font-sans text-start overflow-hidden">
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-y-auto">
+          <div className="oud-card-surface rounded-3xl w-full max-w-4xl shadow-2xl my-8 flex flex-col justify-between font-sans text-start overflow-hidden">
             {/* Modal Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-white/5 bg-neutral-950/40">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#D4AF37]/20 bg-[#160D09]">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4.5 w-4.5 text-gold-400" />
-                <h3 className="font-serif text-lg font-bold text-white">
+                <Sparkles className="h-4.5 w-4.5 text-[#D4AF37]" />
+                <h3 className="font-arabic-display text-xl font-bold text-[#F5EFE6]">
                   {t('compare_perfumes_title')}
                 </h3>
               </div>
-              <button 
+              <button
                 type="button"
-                onClick={() => setCompareModalOpen(false)} 
-                className="p-1 rounded-full hover:bg-white/5 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                onClick={() => setCompareModalOpen(false)}
+                className="p-1 rounded-full hover:bg-[#2D1B14] text-[#A8988A] hover:text-[#F5EFE6] transition-colors cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Modal Body: Comparison Table/Grid */}
+            {/* Modal Body */}
             <div className="p-6 overflow-x-auto">
-              <table className="w-full text-xs text-neutral-300 border-collapse">
+              <table className="w-full text-xs text-[#F5EFE6] border-collapse">
                 <thead>
-                  <tr className="border-b border-white/5">
-                    <th className="py-4 px-3 text-start text-neutral-400 uppercase tracking-widest text-[9px] w-1/4">Criteria</th>
-                    <th className="py-4 px-3 text-start font-serif text-sm font-bold text-gold-400 w-3/8">
+                  <tr className="border-b border-[#D4AF37]/15">
+                    <th className="py-4 px-3 text-start text-[#A8988A] text-[10px] w-1/4">
+                      {isRtl ? 'المعيار' : 'Criteria'}
+                    </th>
+                    <th className="py-4 px-3 text-start font-serif text-sm font-bold text-[#F9E29C] w-3/8">
                       {comparedPerfumes[0].name}
-                      <span className="block text-[9px] font-sans font-semibold text-neutral-400 uppercase tracking-wider mt-0.5">
+                      <span
+                        dir="ltr"
+                        className="block font-latin-luxury text-[10px] font-semibold text-[#D4AF37]/80 uppercase tracking-[0.2em] mt-0.5"
+                      >
                         {comparedPerfumes[0].brand_name}
                       </span>
                     </th>
-                    <th className="py-4 px-3 text-start font-serif text-sm font-bold text-gold-400 w-3/8">
+                    <th className="py-4 px-3 text-start font-serif text-sm font-bold text-[#F9E29C] w-3/8">
                       {comparedPerfumes[1].name}
-                      <span className="block text-[9px] font-sans font-semibold text-neutral-400 uppercase tracking-wider mt-0.5">
+                      <span
+                        dir="ltr"
+                        className="block font-latin-luxury text-[10px] font-semibold text-[#D4AF37]/80 uppercase tracking-[0.2em] mt-0.5"
+                      >
                         {comparedPerfumes[1].brand_name}
                       </span>
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
-                  {/* Photo row */}
+                <tbody className="divide-y divide-[#D4AF37]/10">
                   <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">Image</td>
-                    <td className="py-4 px-3">
-                      <div className="h-20 w-32 bg-neutral-950 flex items-center justify-center text-neutral-600 rounded-xl relative overflow-hidden text-[10px]">
-                        <span className="absolute">No Photo</span>
-                        {comparedPerfumes[0].image_url && (
-                          <img 
-                            src={comparedPerfumes[0].image_url} 
-                            alt={comparedPerfumes[0].name} 
-                            loading="lazy"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                            className="h-full w-full object-cover rounded-xl border border-white/5 z-10" 
-                          />
-                        )}
-                      </div>
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">
+                      {isRtl ? 'الزجاجة' : 'Image'}
                     </td>
-                    <td className="py-4 px-3">
-                      <div className="h-20 w-32 bg-neutral-950 flex items-center justify-center text-neutral-600 rounded-xl relative overflow-hidden text-[10px]">
-                        <span className="absolute">No Photo</span>
-                        {comparedPerfumes[1].image_url && (
-                          <img 
-                            src={comparedPerfumes[1].image_url} 
-                            alt={comparedPerfumes[1].name} 
-                            loading="lazy"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                            className="h-full w-full object-cover rounded-xl border border-white/5 z-10" 
-                          />
-                        )}
-                      </div>
+                    {[comparedPerfumes[0], comparedPerfumes[1]].map((cp) => (
+                      <td key={cp.id} className="py-4 px-3">
+                        <div className="h-24 w-32 bg-[#160D09] border border-[#D4AF37]/20 flex items-center justify-center text-[#A8988A] rounded-xl relative overflow-hidden p-2">
+                          {cp.image_url ? (
+                            <img
+                              src={cp.image_url}
+                              alt={cp.name}
+                              loading="lazy"
+                              className="max-h-full max-w-full object-contain drop-shadow-[0_10px_14px_rgba(0,0,0,0.85)] z-10"
+                            />
+                          ) : (
+                            <span className="text-[10px]">No Photo</span>
+                          )}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+
+                  <tr>
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">
+                      {t('compare_match_score')}
+                    </td>
+                    <td dir="ltr" className="py-4 px-3 font-mono font-bold text-sm text-[#F9E29C]">
+                      {Math.round(comparedPerfumes[0].match_score)}%
+                    </td>
+                    <td dir="ltr" className="py-4 px-3 font-mono font-bold text-sm text-[#F9E29C]">
+                      {Math.round(comparedPerfumes[1].match_score)}%
                     </td>
                   </tr>
 
-                  {/* Match Score row */}
                   <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">{t('compare_match_score')}</td>
-                    <td className="py-4 px-3 font-mono font-bold text-sm text-gold-400">
-                      {Math.round(comparedPerfumes[0].match_score)}% Match
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">{t('compare_volume')}</td>
+                    <td dir="ltr" className="py-4 px-3 font-mono">
+                      {comparedPerfumes[0].volume_ml} ml
                     </td>
-                    <td className="py-4 px-3 font-mono font-bold text-sm text-gold-400">
-                      {Math.round(comparedPerfumes[1].match_score)}% Match
-                    </td>
-                  </tr>
-
-
-
-                  {/* Volume row */}
-                  <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">{t('compare_volume')}</td>
-                    <td className="py-4 px-3 font-mono">{comparedPerfumes[0].volume_ml} ml</td>
-                    <td className="py-4 px-3 font-mono">{comparedPerfumes[1].volume_ml} ml</td>
-                  </tr>
-
-                  {/* Concentration row */}
-                  <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">{t('compare_concentration')}</td>
-                    <td className="py-4 px-3 uppercase font-semibold text-neutral-350">{comparedPerfumes[0].concentration}</td>
-                    <td className="py-4 px-3 uppercase font-semibold text-neutral-350">{comparedPerfumes[1].concentration}</td>
-                  </tr>
-
-                  {/* Inspired by row */}
-                  <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">Alternative To</td>
-                    <td className="py-4 px-3 italic text-neutral-350">
-                      {comparedPerfumes[0].is_dupe_of ? t('dupe_badge_text', { perfume: comparedPerfumes[0].is_dupe_of }) : '—'}
-                    </td>
-                    <td className="py-4 px-3 italic text-neutral-350">
-                      {comparedPerfumes[1].is_dupe_of ? t('dupe_badge_text', { perfume: comparedPerfumes[1].is_dupe_of }) : '—'}
+                    <td dir="ltr" className="py-4 px-3 font-mono">
+                      {comparedPerfumes[1].volume_ml} ml
                     </td>
                   </tr>
 
-                  {/* Shared Scent Notes row */}
                   <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">{t('shared_notes_label')}</td>
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">
+                      {t('compare_concentration')}
+                    </td>
+                    <td dir="ltr" className="py-4 px-3 uppercase font-semibold">
+                      {comparedPerfumes[0].concentration}
+                    </td>
+                    <td dir="ltr" className="py-4 px-3 uppercase font-semibold">
+                      {comparedPerfumes[1].concentration}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">
+                      {isRtl ? 'مستوحى من' : 'Alternative To'}
+                    </td>
+                    <td className="py-4 px-3 italic text-[#A8988A]">
+                      {comparedPerfumes[0].is_dupe_of
+                        ? t('dupe_badge_text', { perfume: comparedPerfumes[0].is_dupe_of })
+                        : '—'}
+                    </td>
+                    <td className="py-4 px-3 italic text-[#A8988A]">
+                      {comparedPerfumes[1].is_dupe_of
+                        ? t('dupe_badge_text', { perfume: comparedPerfumes[1].is_dupe_of })
+                        : '—'}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">
+                      {t('shared_notes_label')}
+                    </td>
                     <td className="py-4 px-3" colSpan={2}>
                       <div className="flex flex-wrap gap-1.5">
                         {comparisonDetails.shared.length > 0 ? (
                           comparisonDetails.shared.map(note => (
-                            <span key={note.id} className="px-2 py-0.5 rounded-lg bg-burgundy-750/30 border border-gold-500/35 text-gold-400 font-semibold text-[10px]">
+                            <span
+                              key={note.id}
+                              className="px-2.5 py-0.5 rounded-full bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C] font-semibold text-[10px]"
+                            >
                               {getLocalizedName(note)}
                             </span>
                           ))
                         ) : (
-                          <span className="italic text-neutral-500">None</span>
+                          <span className="italic text-[#A8988A]">—</span>
                         )}
                       </div>
                     </td>
                   </tr>
 
-                  {/* Unique Scent Notes row */}
                   <tr>
-                    <td className="py-4 px-3 text-neutral-400 font-medium">{t('unique_notes_label')}</td>
+                    <td className="py-4 px-3 text-[#A8988A] font-medium">
+                      {t('unique_notes_label')}
+                    </td>
                     <td className="py-4 px-3">
                       <div className="flex flex-wrap gap-1.5">
                         {comparisonDetails.uniqueP1.length > 0 ? (
                           comparisonDetails.uniqueP1.map(note => (
-                            <span key={note.id} className="px-2 py-0.5 rounded-lg bg-neutral-950 border border-white/5 text-neutral-400 text-[10px]">
+                            <span
+                              key={note.id}
+                              className="px-2.5 py-0.5 rounded-full bg-[#160D09] border border-[#A8988A]/20 text-[#A8988A] text-[10px]"
+                            >
                               {getLocalizedName(note)}
                             </span>
                           ))
                         ) : (
-                          <span className="italic text-neutral-500">None</span>
+                          <span className="italic text-[#A8988A]">—</span>
                         )}
                       </div>
                     </td>
@@ -917,12 +1068,15 @@ export default function Results() {
                       <div className="flex flex-wrap gap-1.5">
                         {comparisonDetails.uniqueP2.length > 0 ? (
                           comparisonDetails.uniqueP2.map(note => (
-                            <span key={note.id} className="px-2 py-0.5 rounded-lg bg-neutral-950 border border-white/5 text-neutral-400 text-[10px]">
+                            <span
+                              key={note.id}
+                              className="px-2.5 py-0.5 rounded-full bg-[#160D09] border border-[#A8988A]/20 text-[#A8988A] text-[10px]"
+                            >
                               {getLocalizedName(note)}
                             </span>
                           ))
                         ) : (
-                          <span className="italic text-neutral-500">None</span>
+                          <span className="italic text-[#A8988A]">—</span>
                         )}
                       </div>
                     </td>
@@ -932,20 +1086,18 @@ export default function Results() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-white/5 bg-neutral-950/40 flex justify-end">
+            <div className="px-6 py-4 border-t border-[#D4AF37]/20 bg-[#160D09] flex justify-end">
               <button
                 type="button"
                 onClick={() => setCompareModalOpen(false)}
-                className="px-5 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-white text-xs font-bold transition-colors cursor-pointer"
+                className="px-5 py-2.5 rounded-xl border border-[#D4AF37]/30 hover:bg-[#2D1B14] text-[#F5EFE6] text-xs font-bold transition-transform duration-150 active:scale-95 cursor-pointer"
               >
-                Close
+                {isRtl ? 'إغلاق' : 'Close'}
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   )
 }

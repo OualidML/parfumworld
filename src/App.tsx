@@ -6,18 +6,24 @@ import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import WishlistPage from './pages/WishlistPage'
 import ClientOnboarding from './pages/ClientOnboarding'
+import ShopGuard from './components/ShopGuard'
+import { ShopSettingsProvider } from './context/ShopSettingsContext'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<NotePicker />} />
-      <Route path="/results" element={<Results />} />
-      <Route path="/perfume/:id" element={<PerfumeDetails />} />
-      <Route path="/admin/login" element={<AdminLogin />} />
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/admin/onboard" element={<ClientOnboarding />} />
-      <Route path="/wishlist" element={<WishlistPage />} />
-    </Routes>
+    <ShopGuard>
+      <ShopSettingsProvider>
+        <Routes>
+          <Route path="/" element={<NotePicker />} />
+          <Route path="/results" element={<Results />} />
+          <Route path="/perfume/:id" element={<PerfumeDetails />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/onboard" element={<ClientOnboarding />} />
+          <Route path="/wishlist" element={<WishlistPage />} />
+        </Routes>
+      </ShopSettingsProvider>
+    </ShopGuard>
   )
 }
 

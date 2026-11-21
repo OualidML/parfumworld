@@ -2,13 +2,17 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
-import { KeyRound, Mail, Sparkles, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
+import { resolveShopId } from '../lib/utils'
+import { useShopSettings } from '../context/ShopSettingsContext'
+import ShopBrandHeader from '../components/ShopBrandHeader'
+import { KeyRound, Mail, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
 
 export default function AdminLogin() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const currentLanguage = i18n.language || 'ar'
   const isRtl = currentLanguage === 'ar'
+  const { shopSettings } = useShopSettings()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -38,11 +42,13 @@ export default function AdminLogin() {
       const user = authData.user
       if (!user) throw new Error('Authentication failed.')
 
-      // 2. Validate admin role from admins table
+      // 2. Validate admin role from admins table strictly scoped to active shopId
+      const shopId = resolveShopId()
       const { data: adminData, error: adminError } = await supabase
         .from('admins')
-        .select('id')
+        .select('id, shop_id')
         .eq('id', user.id)
+        .eq('shop_id', shopId)
         .maybeSingle()
 
       if (adminError) throw adminError
@@ -52,9 +58,6 @@ export default function AdminLogin() {
         await supabase.auth.signOut()
         throw new Error(t('unauthorized_error'))
       }
-
-      // Save shop owner ID to local storage for kiosk persistence
-      localStorage.setItem('parfumworld_shop_id', user.id)
 
       // Redirect to Admin Dashboard
       navigate('/admin')
@@ -69,28 +72,18 @@ export default function AdminLogin() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-burgundy-950 via-neutral-950 to-black text-white flex flex-col justify-between selection:bg-gold-500 selection:text-black font-sans">
       
       {/* Top Header */}
-      <header className="w-full py-4 px-4 md:px-8 border-b border-white/5 bg-neutral-950/40 backdrop-blur-md">
+      <header className="w-full py-3.5 px-4 md:px-8 border-b border-[#D4AF37]/20 bg-[#120A07]/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <ShopBrandHeader onClick={() => navigate('/')} />
+
           <button
+            type="button"
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 hover:border-gold-500/30 hover:bg-white/5 text-xs text-neutral-300 hover:text-white transition-all cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#1E120D] border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 text-xs text-[#F5EFE6] transition-transform duration-150 active:scale-95 cursor-pointer font-semibold"
           >
-            <ArrowLeft className={`h-3.5 w-3.5 ${isRtl ? 'rotate-180' : ''}`} />
+            <ArrowLeft className={`h-3.5 w-3.5 text-[#D4AF37] ${isRtl ? 'rotate-180' : ''}`} />
             <span>{t('back_to_picker')}</span>
           </button>
-
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-gold-500 to-burgundy-500 flex items-center justify-center shadow-lg">
-              <Sparkles className="h-4 w-4 text-neutral-900" />
-            </div>
-            <span className="font-serif text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 to-gold-400">
-              ParfumWorld
-            </span>
-          </div>
-
-          <div className="text-[10px] text-neutral-400 uppercase tracking-widest font-light text-end">
-            {t('admin_sign_in')}
-          </div>
         </div>
       </header>
 
@@ -174,7 +167,7 @@ export default function AdminLogin() {
 
       {/* Footer */}
       <footer className="w-full text-center py-6 border-t border-white/5 bg-neutral-950/20 text-neutral-500 text-xs font-light">
-        <p>© 2026 ParfumWorld. Owner Panel Access.</p>
+        <p>© 2026 {shopSettings.shop_name?.trim() || 'ParfumWorld'}. Owner Panel Access.</p>
       </footer>
 
     </div>

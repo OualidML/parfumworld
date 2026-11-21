@@ -2,10 +2,24 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
+import { resolveShopId } from '../lib/utils'
+import { useShopSettings } from '../context/ShopSettingsContext'
+import ShopBrandHeader from '../components/ShopBrandHeader'
+import type { ShopPublicProfile, WhatsappOrderIntent } from '../types/database'
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  LabelList
+} from 'recharts'
 import { 
-  Sparkles, LogOut, Loader2, AlertCircle, TrendingUp, Package, Layers, Settings,
-  Plus, Edit2, Trash2, XCircle, Search, Save, X, Upload, DollarSign,
-  Tag, MapPin, MessageSquare, KeyRound
+  Sparkles, LogOut, Loader2, AlertCircle, TrendingUp, Layers, Settings,
+  Plus, Edit2, Trash2, Search, Save, X, Upload, DollarSign,
+  Tag, MapPin, MessageSquare, KeyRound, CheckCircle2, RotateCcw,
+  Globe, ShieldCheck, Bell, Check, ExternalLink
 } from 'lucide-react'
 
 // Interfaces mapping database columns
@@ -69,27 +83,30 @@ interface SearchStatNote {
   search_count: number
 }
 
-interface FailedSearch {
-  id: string
-  note_ids: string[]
-  created_at: string
-}
-
-interface OutOfStockDemand {
+interface MatchedPerfumeStat {
   perfume_id: string
   perfume_name: string
   brand_name: string
-  search_count: number
+  in_stock: boolean
+  match_count: number
+}
+
+interface TopSoldPerfume {
+  perfume_name: string
+  brand_name: string
+  sales_count: number
 }
 
 export default function AdminDashboard() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const currentLanguage = i18n.language || 'ar'
+  const { shopSettings, isLoadingSettings, refreshShopSettings } = useShopSettings()
 
   // Auth Guard States
   const [authLoading, setAuthLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [adminEmail, setAdminEmail] = useState<string>('')
 
   // Active Tab: 'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives'
   const [activeTab, setActiveTab] = useState<'stats' | 'perfumes' | 'notes' | 'settings' | 'alternatives'>('stats')
@@ -152,23 +169,41 @@ export default function AdminDashboard() {
   })
   const [noteError, setNoteError] = useState<string | null>(null)
 
-  // Settings state
-  const [settingsForm, setSettingsForm] = useState({
+  // Settings state (Session 12: 3-Tab General Settings)
+  const [settingsSubTab, setSettingsSubTab] = useState<'identity' | 'contact' | 'security'>('identity')
+  const [settingsForm, setSettingsForm] = useState<ShopPublicProfile>({
+    shop_name: 'ParfumWorld',
+    slogan: '',
+    logo_url: null,
     whatsapp_number: '',
-    store_name: '',
-    store_slogan: '',
-    google_maps_link: ''
+    location_url: '',
+    instagram_handle: '',
+    instagram_url: '',
+    facebook_handle: '',
+    facebook_url: '',
+    tiktok_handle: '',
+    tiktok_url: ''
   })
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [settingsToast, setSettingsToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Password Update States
+  // Password Update States (Tab 3: Security & Password)
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passLoading, setPassLoading] = useState(false)
+  const [passwordToast, setPasswordToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Pending WhatsApp Order Intents (Owner Sale-Recording Reminder)
+  const [pendingIntents, setPendingIntents] = useState<WhatsappOrderIntent[]>([])
+  const [resolvingIntentId, setResolvingIntentId] = useState<string | null>(null)
 
   // Stats Analytics states
-  const [statNotes, setStatNotes] = useState<SearchStatNote[]>([])
-  const [statFailed, setStatFailed] = useState<FailedSearch[]>([])
-  const [statOosDemand, setStatOosDemand] = useState<OutOfStockDemand[]>([])
+  const [topNotes, setTopNotes] = useState<SearchStatNote[]>([])
+  const [matchedPerfumes, setMatchedPerfumes] = useState<MatchedPerfumeStat[]>([])
+  const [timeframe, setTimeframe] = useState<'daily' | 'weekly' | 'monthly'>('monthly')
+  const [topSoldPerfumes, setTopSoldPerfumes] = useState<TopSoldPerfume[]>([])
+  const [topSoldLoading, setTopSoldLoading] = useState(false)
 
   // --- Inline Loading Helpers ---
   const [inlinePriceLoading, setInlinePriceLoading] = useState<Record<string, boolean>>({})
@@ -183,11 +218,13 @@ export default function AdminDashboard() {
           return
         }
 
-        // Verify if user exists in admins table
+        // Verify if user exists in admins table for the active shopId
+        const shopId = resolveShopId()
         const { data: admin, error: adminErr } = await supabase
           .from('admins')
-          .select('id')
+          .select('id, shop_id')
           .eq('id', session.user.id)
+          .eq('shop_id', shopId)
           .maybeSingle()
 
         if (adminErr) throw adminErr
@@ -199,6 +236,7 @@ export default function AdminDashboard() {
         }
 
         setIsAdmin(true)
+        setAdminEmail(session.user.email || '')
         setAuthLoading(false)
       } catch (err: any) {
         console.error('Auth verification error:', err)
@@ -215,7 +253,56 @@ export default function AdminDashboard() {
     fetchGlobalData()
     fetchStatsData()
     fetchSettingsData()
+    fetchPendingWhatsappIntents()
   }, [isAdmin])
+
+  // 2.1. Keep Tab 1 & Tab 2 settingsForm synchronized when ShopSettingsContext finishes loading
+  useEffect(() => {
+    if (isLoadingSettings) return
+    setSettingsForm({
+      shop_name: shopSettings.shop_name?.trim() || 'ParfumWorld',
+      slogan: shopSettings.slogan ?? '',
+      logo_url: shopSettings.logo_url ?? null,
+      whatsapp_number: shopSettings.whatsapp_number ?? '',
+      location_url: shopSettings.location_url ?? '',
+      instagram_handle: shopSettings.instagram_handle ?? '',
+      instagram_url: shopSettings.instagram_url ?? '',
+      facebook_handle: shopSettings.facebook_handle ?? '',
+      facebook_url: shopSettings.facebook_url ?? '',
+      tiktok_handle: shopSettings.tiktok_handle ?? '',
+      tiktok_url: shopSettings.tiktok_url ?? ''
+    })
+  }, [isLoadingSettings, shopSettings])
+
+  const fetchTop5Sold = async (activeTimeframe: 'daily' | 'weekly' | 'monthly' = timeframe) => {
+    setTopSoldLoading(true)
+    try {
+      const shopId = resolveShopId()
+      const { data, error } = await supabase.rpc('get_top_5_sold', {
+        p_shop_id: shopId,
+        p_timeframe: activeTimeframe
+      })
+      if (error) throw error
+      setTopSoldPerfumes(
+        (data || []).map((row: any) => ({
+          perfume_name: row.perfume_name,
+          brand_name: row.brand_name,
+          sales_count: Number(row.sales_count) || 0
+        }))
+      )
+    } catch (e) {
+      console.warn('Failed to load get_top_5_sold RPC:', e)
+      setTopSoldPerfumes([])
+    } finally {
+      setTopSoldLoading(false)
+    }
+  }
+
+  // 2.5. Fetch Top 5 Best Sellers whenever `isAdmin` or `timeframe` changes
+  useEffect(() => {
+    if (!isAdmin) return
+    fetchTop5Sold(timeframe)
+  }, [isAdmin, timeframe])
 
   // 3. Fetch Alternatives when selectedAnchorId changes
   useEffect(() => {
@@ -226,10 +313,12 @@ export default function AdminDashboard() {
       }
       setAltsLoading(true)
       try {
+        const shopId = resolveShopId()
         const { data, error } = await supabase
           .from('perfume_alternatives')
           .select('*')
           .eq('perfume_id', selectedAnchorId)
+          .eq('shop_id', shopId)
           .order('match_confidence', { ascending: false })
         
         if (error) throw error
@@ -300,9 +389,8 @@ export default function AdminDashboard() {
     if (!selectedAnchorId) return
     setUploadLoadingId(alt.id)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const shopId = session?.user?.id
-      if (!shopId) throw new Error('No active session user')
+      const shopId = resolveShopId()
+      if (!shopId) throw new Error('No active shop tenant')
 
       // 1. Resolve or Create Brand
       let brandId = ''
@@ -411,6 +499,8 @@ export default function AdminDashboard() {
   const fetchGlobalData = async () => {
     setDataLoading(true)
     try {
+      const shopId = resolveShopId()
+
       // Fetch Brands
       const { data: brandsData } = await supabase.from('brands').select('*').order('name')
       setBrands(brandsData || [])
@@ -419,14 +509,19 @@ export default function AdminDashboard() {
       const { data: catData } = await supabase.from('note_categories').select('*')
       setCategories(catData || [])
 
-      // Fetch Notes
-      const { data: notesData } = await supabase.from('notes').select('*').order('name_en')
+      // Fetch Notes (global + shop-local)
+      const { data: notesData } = await supabase
+        .from('notes')
+        .select('*')
+        .or(`shop_id.is.null,shop_id.eq.${shopId}`)
+        .order('name_en')
       setNotes(notesData || [])
 
-      // Fetch Perfumes with Brand details
+      // Fetch Perfumes with Brand details strictly isolated by shop_id
       const { data: perfData } = await supabase
         .from('perfumes')
         .select('*, brands(*), perfume_notes(*)')
+        .eq('shop_id', shopId)
         .order('created_at', { ascending: false })
       setPerfumes(perfData || [])
     } catch (e) {
@@ -438,37 +533,92 @@ export default function AdminDashboard() {
 
   const fetchSettingsData = async () => {
     try {
-      const { data } = await supabase.from('store_settings').select('*')
-      if (data) {
-        const settingsMap: Record<string, string> = {}
-        data.forEach(item => {
-          settingsMap[item.key] = item.value
-        })
-        setSettingsForm({
-          whatsapp_number: settingsMap['whatsapp_number'] || '',
-          store_name: settingsMap['store_name'] || '',
-          store_slogan: settingsMap['store_slogan'] || '',
-          google_maps_link: settingsMap['google_maps_link'] || ''
-        })
+      const shopId = resolveShopId()
+      const { data, error } = await supabase.rpc('get_shop_public_profile', {
+        p_shop_id: shopId
+      })
+      if (!error && data) {
+        const raw = (Array.isArray(data) ? data[0] : data) as Partial<ShopPublicProfile> | undefined
+        if (raw) {
+          setSettingsForm({
+            shop_name: raw.shop_name?.trim() || 'ParfumWorld',
+            slogan: raw.slogan ?? '',
+            logo_url: raw.logo_url ?? null,
+            whatsapp_number: raw.whatsapp_number ?? '',
+            location_url: raw.location_url ?? '',
+            instagram_handle: raw.instagram_handle ?? '',
+            instagram_url: raw.instagram_url ?? '',
+            facebook_handle: raw.facebook_handle ?? '',
+            facebook_url: raw.facebook_url ?? '',
+            tiktok_handle: raw.tiktok_handle ?? '',
+            tiktok_url: raw.tiktok_url ?? ''
+          })
+          return
+        }
       }
     } catch (e) {
-      console.error(e)
+      console.error('Failed to load shop public profile:', e)
+    }
+  }
+
+  const fetchPendingWhatsappIntents = async () => {
+    try {
+      const shopId = resolveShopId()
+      const { data, error } = await supabase.rpc('get_pending_whatsapp_intents', {
+        p_shop_id: shopId
+      })
+      if (!error && Array.isArray(data)) {
+        setPendingIntents(data as WhatsappOrderIntent[])
+      }
+    } catch (e) {
+      console.warn('Failed to fetch pending WhatsApp intents:', e)
+    }
+  }
+
+  const handleResolveWhatsappIntent = async (
+    intentId: string,
+    action: 'confirmed' | 'dismissed'
+  ) => {
+    if (resolvingIntentId) return
+    setResolvingIntentId(intentId)
+    try {
+      const shopId = resolveShopId()
+      const { error } = await supabase.rpc('resolve_whatsapp_intent', {
+        p_shop_id: shopId,
+        p_intent_id: intentId,
+        p_action: action
+      })
+      if (error) throw error
+
+      setPendingIntents(prev => prev.filter(item => item.id !== intentId))
+      if (action === 'confirmed') {
+        await fetchTop5Sold(timeframe)
+      }
+    } catch (err: any) {
+      console.error('Failed to resolve WhatsApp intent:', err)
+      alert(err.message || 'تعذر تحديث حالة طلب واتساب.')
+    } finally {
+      setResolvingIntentId(null)
     }
   }
 
   const fetchStatsData = async () => {
     try {
-      // 1. Top searched notes (last 30 days)
-      const { data: topNotes } = await supabase.rpc('get_top_searched_notes', { days_count: 30 })
-      setStatNotes(topNotes || [])
+      const shopId = resolveShopId()
 
-      // 2. Failed searches (no match)
-      const { data: failedSearches } = await supabase.rpc('get_failed_searches', { limit_count: 10 })
-      setStatFailed(failedSearches || [])
+      // 1. Top searched notes (last 30 days) strictly scoped to shopId
+      const { data: topNotesData } = await supabase.rpc('get_top_searched_notes', {
+        p_shop_id: shopId,
+        days_count: 30
+      })
+      setTopNotes(topNotesData || [])
 
-      // 3. Out of stock demand
-      const { data: oosDemand } = await supabase.rpc('get_out_of_stock_demand')
-      setStatOosDemand(oosDemand || [])
+      // 2. Most matched perfumes overall strictly scoped to shopId (limit 5)
+      const { data: matchedPerfumesData } = await supabase.rpc('get_most_matched_perfumes', {
+        p_shop_id: shopId,
+        limit_count: 5
+      })
+      setMatchedPerfumes(matchedPerfumesData || [])
     } catch (e) {
       console.warn('Failed to load stats RPC queries:', e)
     }
@@ -476,6 +626,7 @@ export default function AdminDashboard() {
 
   // Sign out Handler
   const handleSignOut = async () => {
+    localStorage.removeItem('parfumworld_shop_id')
     await supabase.auth.signOut()
     navigate('/admin/login')
   }
@@ -613,9 +764,8 @@ export default function AdminDashboard() {
     setSaveLoading(true)
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const shopId = session?.user?.id
-      if (!shopId) throw new Error('No active session user')
+      const shopId = resolveShopId()
+      if (!shopId) throw new Error('No active shop tenant')
 
       let perfumeId = editingPerfume?.id
 
@@ -733,6 +883,8 @@ export default function AdminDashboard() {
     setNoteError(null)
 
     try {
+      const shopId = resolveShopId()
+
       if (editingNote) {
         const { error } = await supabase
           .from('notes')
@@ -742,7 +894,7 @@ export default function AdminDashboard() {
       } else {
         const { error } = await supabase
           .from('notes')
-          .insert(noteForm)
+          .insert({ ...noteForm, shop_id: shopId })
         if (error) throw error
       }
       setNoteModalOpen(false)
@@ -781,60 +933,368 @@ export default function AdminDashboard() {
     }
   }
 
-  // --- Store Settings Save Handler ---
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaveLoading(true)
+  // --- Session 12: General Settings Helpers & Handlers ---
+  const showSettingsFeedback = (type: 'success' | 'error', text: string) => {
+    setSettingsToast({ type, text })
+    setTimeout(() => {
+      setSettingsToast(null)
+    }, 4000)
+  }
 
+  // Normalize Algerian phone numbers (0550..., 06..., 07..., +213 0550..., 00213 06..., 21307...) to clean international digits (213...)
+  const normalizeAlgerianWhatsapp = (raw: string): string => {
+    let digits = (raw || '').replace(/[^0-9]/g, '')
+    if (!digits) return ''
+    if (digits.startsWith('00213')) {
+      digits = '213' + digits.slice(5)
+    }
+    if (digits.startsWith('2130') && digits.length === 13 && /^2130[567]/.test(digits)) {
+      digits = '213' + digits.slice(4)
+    } else if (digits.startsWith('0') && digits.length === 10 && /^0[567]/.test(digits)) {
+      digits = '213' + digits.slice(1)
+    } else if (digits.length === 9 && /^[567]/.test(digits)) {
+      digits = '213' + digits
+    }
+    return digits
+  }
+
+  // Validate and normalize optional external URLs (auto-prepend https://, verify hostname has dot, reject @handles & javascript:)
+  const sanitizeHttpUrl = (raw: string): { valid: boolean; url: string } => {
+    const trimmed = (raw || '').trim()
+    if (!trimmed) return { valid: true, url: '' }
+    if (
+      /^(javascript|data|vbscript):/i.test(trimmed) ||
+      trimmed.startsWith('@') ||
+      /\s/.test(trimmed)
+    ) {
+      return { valid: false, url: trimmed }
+    }
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const shopId = session?.user?.id
-      if (!shopId) throw new Error('No active session user')
+      const parsed = new URL(withProtocol)
+      if (
+        (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
+        !parsed.hostname ||
+        !parsed.hostname.includes('.') ||
+        Boolean(parsed.username)
+      ) {
+        return { valid: false, url: trimmed }
+      }
+      return { valid: true, url: withProtocol }
+    } catch {
+      return { valid: false, url: trimmed }
+    }
+  }
 
-      const payload = Object.entries(settingsForm).map(([key, value]) => ({
-        shop_id: shopId,
-        key,
-        value,
-        description: `Store setting for ${key}`
-      }))
+  // Tab 1: Upload Shop Logo to `shop-logos/${shopId}/` with cache-busting & finally input reset
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputEl = e.target
+    const file = inputEl.files?.[0]
+    if (!file) return
 
-      const { error } = await supabase
-        .from('store_settings')
-        .upsert(payload)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      inputEl.value = ''
+      showSettingsFeedback('error', 'يرجى اختيار صورة بصيغة PNG أو JPG أو WEBP فقط.')
+      return
+    }
 
-      if (error) throw error
-      alert('Settings updated successfully!')
-      fetchSettingsData()
+    if (file.size > 2 * 1024 * 1024) {
+      inputEl.value = ''
+      showSettingsFeedback('error', 'حجم الشعار يتجاوز الحد المسموح (2 ميغابايت كحد أقصى).')
+      return
+    }
+
+    setUploadingLogo(true)
+    try {
+      const shopId = resolveShopId()
+      const timestamp = Date.now()
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'webp'
+      const filePath = `${shopId}/logo-${timestamp}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('shop-logos')
+        .upload(filePath, file, { upsert: true, contentType: file.type })
+
+      if (uploadError) throw uploadError
+
+      const { data: pubData } = supabase.storage
+        .from('shop-logos')
+        .getPublicUrl(filePath)
+
+      const publicLogoUrl = `${pubData.publicUrl}${
+        pubData.publicUrl.includes('?') ? '&' : '?'
+      }v=${timestamp}`
+
+      const { error: rpcError } = await supabase.rpc('update_shop_settings', {
+        p_shop_id: shopId,
+        p_payload: {
+          logo_url: publicLogoUrl
+        }
+      })
+
+      if (rpcError) throw rpcError
+
+      setSettingsForm(prev => ({ ...prev, logo_url: publicLogoUrl }))
+      await refreshShopSettings()
+      showSettingsFeedback('success', 'تم رفع وحفظ شعار المتجر بنجاح.')
     } catch (err: any) {
-      alert(`Failed to save settings: ${err.message}`)
+      console.error('Logo upload failed:', err)
+      showSettingsFeedback('error', err.message || 'تعذر رفع الشعار، يرجى المحاولة مجدداً.')
+    } finally {
+      inputEl.value = ''
+      setUploadingLogo(false)
+    }
+  }
+
+  // Tab 1: Restore Default Built-in Logo (`logo_url: null`)
+  const handleRestoreDefaultLogo = async () => {
+    setUploadingLogo(true)
+    try {
+      const shopId = resolveShopId()
+      const { error } = await supabase.rpc('update_shop_settings', {
+        p_shop_id: shopId,
+        p_payload: {
+          logo_url: null
+        }
+      })
+      if (error) throw error
+
+      setSettingsForm(prev => ({ ...prev, logo_url: null }))
+      await refreshShopSettings()
+      showSettingsFeedback('success', 'تمت استعادة الشعار الافتراضي للمتجر.')
+    } catch (err: any) {
+      console.error('Restore default logo failed:', err)
+      showSettingsFeedback('error', err.message || 'تعذر استعادة الشعار الافتراضي.')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
+  // Tab 1: Save Brand Identity (Shop Name, Slogan, preserving current logo_url)
+  const handleSaveIdentitySettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const cleanName = settingsForm.shop_name.trim()
+    if (!cleanName) {
+      showSettingsFeedback('error', 'يرجى إدخال اسم المتجر.')
+      return
+    }
+    const cleanSlogan = settingsForm.slogan.trim().slice(0, 80)
+
+    setSaveLoading(true)
+    try {
+      const shopId = resolveShopId()
+      const { error } = await supabase.rpc('update_shop_settings', {
+        p_shop_id: shopId,
+        p_payload: {
+          shop_name: cleanName,
+          slogan: cleanSlogan,
+          logo_url: settingsForm.logo_url
+        }
+      })
+      if (error) throw error
+
+      setSettingsForm(prev => ({
+        ...prev,
+        shop_name: cleanName,
+        slogan: cleanSlogan
+      }))
+      await refreshShopSettings()
+      showSettingsFeedback('success', 'تم حفظ إعدادات الهوية والشعار بنجاح.')
+    } catch (err: any) {
+      console.error('Save identity settings failed:', err)
+      showSettingsFeedback('error', err.message || 'تعذر حفظ إعدادات الهوية.')
     } finally {
       setSaveLoading(false)
     }
   }
 
-  const handleChangePassword = async (e: React.FormEvent) => {
+  // Tab 2: Save Contact, Location & Social Links
+  const handleSaveContactSettings = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (newPassword !== confirmPassword) {
-      alert(t('password_match_error'))
+
+    const normalizedWhatsapp = normalizeAlgerianWhatsapp(settingsForm.whatsapp_number)
+    const locCheck = sanitizeHttpUrl(settingsForm.location_url)
+    const igCheck = sanitizeHttpUrl(settingsForm.instagram_url)
+    const fbCheck = sanitizeHttpUrl(settingsForm.facebook_url)
+    const ttCheck = sanitizeHttpUrl(settingsForm.tiktok_url)
+
+    if (!locCheck.valid) {
+      showSettingsFeedback('error', 'رابط موقع المتجر غير صالح. يرجى إدخال رابط خرائط جوجل صحيح (مثال: https://maps.google.com/...).')
       return
     }
-    if (newPassword.length < 6) {
-      alert(t('password_length_error'))
+    if (!igCheck.valid) {
+      showSettingsFeedback('error', 'رابط حساب إنستغرام غير صالح. يرجى إدخال رابط كامل وليس اسم المستخدم فقط.')
+      return
+    }
+    if (!fbCheck.valid) {
+      showSettingsFeedback('error', 'رابط حساب فيسبوك غير صالح. يرجى إدخال رابط كامل وليس اسم الصفحة فقط.')
+      return
+    }
+    if (!ttCheck.valid) {
+      showSettingsFeedback('error', 'رابط حساب تيك توك غير صالح. يرجى إدخال رابط كامل وليس اسم المستخدم فقط.')
+      return
+    }
+
+    setSaveLoading(true)
+    try {
+      const shopId = resolveShopId()
+      const { error } = await supabase.rpc('update_shop_settings', {
+        p_shop_id: shopId,
+        p_payload: {
+          whatsapp_number: normalizedWhatsapp,
+          location_url: locCheck.url,
+          instagram_handle: settingsForm.instagram_handle.trim(),
+          instagram_url: igCheck.url,
+          facebook_handle: settingsForm.facebook_handle.trim(),
+          facebook_url: fbCheck.url,
+          tiktok_handle: settingsForm.tiktok_handle.trim(),
+          tiktok_url: ttCheck.url
+        }
+      })
+      if (error) throw error
+
+      setSettingsForm(prev => ({
+        ...prev,
+        whatsapp_number: normalizedWhatsapp,
+        location_url: locCheck.url,
+        instagram_handle: prev.instagram_handle.trim(),
+        instagram_url: igCheck.url,
+        facebook_handle: prev.facebook_handle.trim(),
+        facebook_url: fbCheck.url,
+        tiktok_handle: prev.tiktok_handle.trim(),
+        tiktok_url: ttCheck.url
+      }))
+      await refreshShopSettings()
+      showSettingsFeedback('success', 'تم حفظ بيانات التواصل والموقع بنجاح.')
+    } catch (err: any) {
+      console.error('Save contact settings failed:', err)
+      showSettingsFeedback('error', err.message || 'تعذر حفظ بيانات التواصل والموقع.')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  // Password Strength Evaluator (Tab 3)
+  const getPasswordStrength = (pwd: string): { score: number; label: string; colorClass: string } => {
+    if (!pwd) return { score: 0, label: '', colorClass: 'bg-neutral-700' }
+    let score = 0
+    if (pwd.length >= 8) score += 1
+    if (pwd.length >= 12) score += 1
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score += 1
+    if (/[0-9]/.test(pwd) || /[^A-Za-z0-9]/.test(pwd)) score += 1
+
+    if (pwd.length < 8) {
+      return { score: 1, label: 'ضعيفة (8 أحرف على الأقل)', colorClass: 'bg-red-500' }
+    }
+    if (score <= 2) {
+      return { score: 2, label: 'متوسطة', colorClass: 'bg-[#F59E0B]' }
+    }
+    return { score: 3, label: 'قوية وآمنة', colorClass: 'bg-emerald-500' }
+  }
+
+  // Tab 3: Change Password with Current Password Re-Verification & Arabic Error Localization
+  const localizeSupabasePasswordError = (rawMessage: string): string => {
+    const msg = (rawMessage || '').toLowerCase()
+    if (msg.includes('invalid login credentials') || msg.includes('كلمة المرور الحالية غير صحيحة')) {
+      return 'كلمة المرور الحالية غير صحيحة.'
+    }
+    if (
+      msg.includes('different from the old password') ||
+      msg.includes('same_password') ||
+      msg.includes('same password')
+    ) {
+      return 'كلمة المرور الجديدة يجب أن تختلف عن كلمة المرور الحالية.'
+    }
+    if (msg.includes('at least') || msg.includes('weak_password')) {
+      return 'يجب أن تتكون كلمة المرور الجديدة من 8 أحرف على الأقل.'
+    }
+    if (msg.includes('rate limit') || msg.includes('too many requests')) {
+      return 'تم تجاوز عدد المحاولات المسموح بها. يرجى الانتظار قليلاً ثم المحاولة مجدداً.'
+    }
+    return rawMessage || 'تعذر تحديث كلمة المرور.'
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordToast(null)
+
+    if (!currentPassword) {
+      setPasswordToast({ type: 'error', text: 'يرجى إدخال كلمة المرور الحالية للتحقق من الهوية.' })
+      return
+    }
+    if (newPassword.length < 8) {
+      setPasswordToast({ type: 'error', text: 'يجب أن تتكون كلمة المرور الجديدة من 8 أحرف على الأقل.' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordToast({ type: 'error', text: 'كلمتا المرور غير متطابقتين.' })
+      return
+    }
+    if (newPassword === currentPassword) {
+      setPasswordToast({
+        type: 'error',
+        text: 'كلمة المرور الجديدة يجب أن تختلف عن كلمة المرور الحالية.'
+      })
       return
     }
 
     setPassLoading(true)
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
-      alert(t('password_change_success'))
+      // 1. Retrieve active admin email and re-verify Current Password via signInWithPassword
+      let emailToVerify = adminEmail
+      if (!emailToVerify) {
+        const { data: { session } } = await supabase.auth.getSession()
+        emailToVerify = session?.user?.email || ''
+      }
+
+      if (!emailToVerify) {
+        throw new Error('تعذر التحقق من جلسة المسؤول الحالية. يرجى إعادة تسجيل الدخول.')
+      }
+
+      const { error: verifyErr } = await supabase.auth.signInWithPassword({
+        email: emailToVerify,
+        password: currentPassword
+      })
+
+      if (verifyErr) {
+        throw new Error('كلمة المرور الحالية غير صحيحة.')
+      }
+
+      // 2. Update to New Password
+      const { error: updateErr } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+      if (updateErr) throw updateErr
+
+      // 3. Clear password inputs cleanly on success
+      setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      setPasswordToast({ type: 'success', text: 'تم تحديث كلمة المرور بنجاح.' })
     } catch (err: any) {
-      alert(`Password update error: ${err.message}`)
+      setPasswordToast({
+        type: 'error',
+        text: localizeSupabasePasswordError(err?.message || '')
+      })
     } finally {
       setPassLoading(false)
     }
+  }
+
+  // Relative timestamp formatter for pending WhatsApp order intents
+  const formatRelativeTime = (isoDate: string): string => {
+    const diffMs = Date.now() - new Date(isoDate).getTime()
+    const diffMin = Math.max(1, Math.floor(diffMs / 60000))
+    if (diffMin < 60) {
+      return `منذ ${diffMin} دقيقة`
+    }
+    const diffHours = Math.floor(diffMin / 60)
+    if (diffHours < 24) {
+      return `منذ ${diffHours} ساعة`
+    }
+    const diffDays = Math.floor(diffHours / 24)
+    return `منذ ${diffDays} يوم`
   }
 
   // Text helpers matching languages
@@ -842,14 +1302,6 @@ export default function AdminDashboard() {
     if (currentLanguage === 'ar') return obj.name_ar || obj.name_en || obj.name
     if (currentLanguage === 'fr') return obj.name_fr || obj.name_en || obj.name
     return obj.name_en || obj.name
-  }
-
-  const getLocalizedNoteNamesList = (noteIds: string[]) => {
-    if (!noteIds || noteIds.length === 0) return '-'
-    return noteIds.map(nid => {
-      const note = notes.find(n => n.id === nid)
-      return note ? getLocalizedName(note) : 'Scent'
-    }).join(' • ')
   }
 
   // Filters search queries
@@ -879,15 +1331,8 @@ export default function AdminDashboard() {
       <header className="sticky top-0 z-40 w-full bg-neutral-950/80 backdrop-blur-lg border-b border-white/5 py-4 px-4 md:px-8 shadow-md">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           
-          {/* Brand Title */}
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-gold-500 to-burgundy-500 flex items-center justify-center shadow-lg">
-              <Sparkles className="h-4 w-4 text-neutral-900" />
-            </div>
-            <span className="font-serif text-xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-gold-100 to-gold-400">
-              ParfumWorld Admin
-            </span>
-          </div>
+          {/* Brand Title (Reflects Shop Name & Logo dynamically) */}
+          <ShopBrandHeader badgeSuffix="Admin" onClick={() => navigate('/')} />
 
           {/* Navigation Tab Links (Large screens) */}
           <nav className="hidden md:flex items-center gap-1.5 bg-neutral-900/60 p-1 border border-white/5 rounded-xl">
@@ -961,97 +1406,297 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* Dashboard Metrics grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
-                  {/* Metric Block 1: Top 10 Scent Notes */}
-                  <div className="bg-neutral-900/40 border border-white/5 rounded-3xl p-5 shadow-xl flex flex-col gap-4">
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-gold-400 flex items-center gap-2 pb-2 border-b border-white/5">
-                      <Layers className="h-4 w-4" />
+                {/* Session 12: Owner WhatsApp Sale-Recording Reminder (Hidden when zero pending intents) */}
+                {pendingIntents && pendingIntents.length > 0 && (
+                  <div
+                    dir="rtl"
+                    className="oud-card-surface rounded-3xl p-6 flex flex-col gap-4 border border-[#D4AF37]/35 shadow-2xl"
+                  >
+                    <div className="flex items-start sm:items-center justify-between gap-3 border-b border-[#D4AF37]/20 pb-3.5">
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className="h-10 w-10 rounded-2xl bg-[#2D1B14] border border-[#D4AF37]/50 flex items-center justify-center shrink-0">
+                          <Bell className="h-5 w-5 text-[#F9E29C]" />
+                        </div>
+                        <div>
+                          <h4 className="font-arabic-display text-base sm:text-lg font-bold text-[#F9E29C]">
+                            طلبات واتساب بانتظار التأكيد — إذا اكتملت المعاملة، لا تنسَ تسجيل البيع ليظل نظام الإحصائيات دقيقاً
+                          </h4>
+                          <p className="text-xs text-[#A8988A] mt-0.5">
+                            {`لديك ${pendingIntents.length} استفسار عبر واتساب بانتظار المراجعة`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {pendingIntents?.map((intent) => {
+                        const isBusy = resolvingIntentId === intent.id
+                        return (
+                          <div
+                            key={intent.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl bg-[#120A07] border border-[#D4AF37]/20 px-4 py-3"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="h-2.5 w-2.5 rounded-full bg-[#D4AF37] shrink-0" />
+                              <div>
+                                <p className="text-sm font-bold text-[#F5EFE6]">
+                                  {intent.perfume_name}
+                                </p>
+                                <p className="text-[11px] text-[#A8988A] mt-0.5">
+                                  {formatRelativeTime(intent.created_at)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleResolveWhatsappIntent(intent.id, 'confirmed')}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl gold-metallic-bg font-extrabold text-xs cursor-pointer transition-transform duration-150 active:scale-95 disabled:opacity-50"
+                              >
+                                {isBusy ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#120A07]" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5 text-[#120A07] stroke-[3]" />
+                                )}
+                                <span>تأكيد البيع (+1)</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={isBusy}
+                                onClick={() => handleResolveWhatsappIntent(intent.id, 'dismissed')}
+                                className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-[#1E120D] border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 text-xs font-semibold text-[#A8988A] hover:text-[#F5EFE6] cursor-pointer transition-colors disabled:opacity-50"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                <span>تجاهل</span>
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Top 5 Best Sellers Interactive Bar Chart Section */}
+                <div className="bg-neutral-900/40 border border-white/5 rounded-3xl p-6 shadow-xl flex flex-col gap-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                    <div>
+                      <h4 className="text-xs uppercase tracking-widest font-bold text-gold-400 flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Top 5 Best Sellers
+                      </h4>
+                      <p className="text-[11px] text-neutral-400 font-light mt-1">
+                        Verified in-store & WhatsApp sales tallies (Y-axis: Perfume Name • X-axis: Sales Count)
+                      </p>
+                    </div>
+
+                    {/* Timeframe Toggle */}
+                    <div className="inline-flex items-center bg-neutral-950/80 p-1 rounded-xl border border-white/10 self-start sm:self-auto">
+                      {(['daily', 'weekly', 'monthly'] as const).map((period) => (
+                        <button
+                          key={period}
+                          type="button"
+                          onClick={() => setTimeframe(period)}
+                          className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold capitalize transition-all cursor-pointer ${
+                            timeframe === period
+                              ? 'bg-gold-500 text-neutral-950 shadow-md font-black'
+                              : 'text-neutral-400 hover:text-white'
+                          }`}
+                        >
+                          {period}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {topSoldLoading ? (
+                    <div className="py-12 flex items-center justify-center gap-2 text-xs text-neutral-400">
+                      <Loader2 className="h-4 w-4 animate-spin text-gold-500" />
+                      <span>Loading sales tallies...</span>
+                    </div>
+                  ) : topSoldPerfumes.length > 0 ? (
+                    <div dir="ltr" className="w-full bg-white rounded-2xl p-4 shadow-inner">
+                      <ResponsiveContainer width="100%" height={320}>
+                        <BarChart
+                          data={topSoldPerfumes}
+                          layout="vertical"
+                          margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                        >
+                          <XAxis type="number" hide />
+                          <YAxis
+                            dataKey="perfume_name"
+                            type="category"
+                            width={150}
+                            tickLine={false}
+                            axisLine={false}
+                            tick={{ fill: '#374151', fontSize: 12, fontWeight: 700 }}
+                          />
+                          <Tooltip
+                            cursor={{ fill: 'transparent' }}
+                            contentStyle={{
+                              borderRadius: '8px',
+                              border: 'none',
+                              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                              backgroundColor: '#FFFFFF',
+                              color: '#111827',
+                              fontSize: '12px'
+                            }}
+                            formatter={(value: any, _name: any, item: any) => [
+                              `${value} sold (${item?.payload?.brand_name || ''})`,
+                              'Verified Sales'
+                            ]}
+                          />
+                          <Bar
+                            dataKey="sales_count"
+                            fill="#F59E0B"
+                            radius={[0, 4, 4, 0]}
+                            activeBar={{ fill: '#D97706' }}
+                            barSize={32}
+                            minPointSize={30}
+                          >
+                            <LabelList
+                              dataKey="sales_count"
+                              position="insideRight"
+                              fill="#FFFFFF"
+                              fontSize={14}
+                              fontWeight="bold"
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-500 italic py-8 text-center">
+                      No verified sales recorded for the selected {timeframe} timeframe yet. Use "✅ Confirm Sale (+1)" on any perfume page to tally sales.
+                    </p>
+                  )}
+                </div>
+
+                {/* Dashboard Metrics grid (Royal Oud & Gold Aesthetic) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+
+                  {/* Column 1: Top 10 Searched Scent Notes (أكثر 10 نوتات بحثاً) */}
+                  <div className="bg-gradient-to-br from-[#3E2723] to-[#2d1b14] border border-yellow-600/30 rounded-3xl p-6 shadow-2xl shadow-black/50 flex flex-col gap-4">
+                    <h4 className="text-xs uppercase tracking-widest font-bold text-[#D4AF37] flex items-center gap-2 pb-3 border-b border-yellow-600/20">
+                      <Layers className="h-4 w-4 text-[#FFD700]" />
                       {t('stat_top_notes')}
                     </h4>
-                    {statNotes.length > 0 ? (
-                      <div className="space-y-3.5">
-                        {statNotes.map((item, idx) => (
-                          <div key={item.note_id} className="space-y-1">
+                    {!topNotes || topNotes.length === 0 ? (
+                      <div className="flex-1 flex flex-col items-center justify-center py-10 text-center">
+                        <Sparkles className="h-5 w-5 text-[#D4AF37]/70 mb-2 animate-pulse" />
+                        <p className="text-xs font-semibold text-[#D4AF37] tracking-wide">
+                          في انتظار أول عملية بحث...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {topNotes?.map((item, idx) => (
+                          <div
+                            key={item.note_id}
+                            className="group rounded-2xl bg-[#1e110c]/70 border border-yellow-600/20 hover:border-[#D4AF37]/60 hover:shadow-[0_0_18px_rgba(212,175,55,0.22)] px-4 py-3 transition-all duration-300 space-y-2"
+                          >
                             <div className="flex justify-between items-center text-xs">
-                              <span className="font-semibold text-white flex items-center gap-1.5">
-                                <span className="text-[10px] text-gold-500 font-mono">#{idx+1}</span>
+                              <span className="font-bold text-[#FAF3E0] group-hover:text-[#FFD700] transition-colors flex items-center gap-2">
+                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#D4AF37]/15 border border-yellow-600/30 text-[10px] text-[#FFD700] font-mono">
+                                  {idx + 1}
+                                </span>
                                 {getLocalizedName(item)}
                               </span>
-                              <span className="text-[10px] text-neutral-400 font-mono">
+                              <span className="text-[10px] text-[#D4AF37] font-mono font-semibold">
                                 {item.search_count} {t('searches_count', { count: item.search_count }).replace(/[0-9]/g, '')}
                               </span>
                             </div>
                             {/* Visual Progress bar */}
-                            <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                            <div className="w-full h-1.5 bg-black/50 rounded-full overflow-hidden border border-yellow-600/10">
                               <div 
-                                className="h-full bg-gradient-to-r from-burgundy-500 to-gold-500 rounded-full" 
-                                style={{ width: `${Math.min((item.search_count / (statNotes[0]?.search_count || 1)) * 100, 100)}%` }}
+                                className="h-full bg-gradient-to-r from-[#b9982f] via-[#D4AF37] to-[#FFD700] rounded-full transition-all duration-500" 
+                                style={{ width: `${Math.min((item.search_count / (topNotes?.[0]?.search_count || 1)) * 100, 100)}%` }}
                               />
                             </div>
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <p className="text-xs text-neutral-500 italic py-6 text-center">No search telemetry recorded yet.</p>
                     )}
                   </div>
 
-                  {/* Metric Block 2: Zero-Match Searches */}
-                  <div className="bg-neutral-900/40 border border-white/5 rounded-3xl p-5 shadow-xl flex flex-col gap-4">
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-gold-400 flex items-center gap-2 pb-2 border-b border-white/5">
-                      <XCircle className="h-4 w-4" />
-                      {t('stat_failed_searches')}
-                    </h4>
-                    {statFailed.length > 0 ? (
-                      <div className="space-y-3">
-                        {statFailed.map((item) => (
-                          <div key={item.id} className="bg-black/20 border border-white/5 rounded-xl p-3 flex flex-col gap-1.5 hover:border-gold-500/20 transition-colors">
-                            <div className="flex justify-between text-[9px] text-neutral-500 font-mono">
-                              <span>Search Combinations</span>
-                              <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <p className="text-xs text-gold-100 font-medium leading-relaxed">
-                              {getLocalizedNoteNamesList(item.note_ids)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-neutral-500 italic py-6 text-center">Perfect! All customer queries matched successfully.</p>
-                    )}
-                  </div>
+                  {/* Column 2: Most Matched Perfumes + Bottom-Left Antique Parfum World Ambient Sanctuary */}
+                  <div className="flex flex-col gap-6">
 
-                  {/* Metric Block 3: Popular Out-of-Stock Products */}
-                  <div className="bg-neutral-900/40 border border-white/5 rounded-3xl p-5 shadow-xl flex flex-col gap-4">
-                    <h4 className="text-xs uppercase tracking-widest font-bold text-gold-400 flex items-center gap-2 pb-2 border-b border-white/5">
-                      <Package className="h-4 w-4" />
-                      {t('stat_out_of_stock_demand')}
-                    </h4>
-                    {statOosDemand.length > 0 ? (
-                      <div className="space-y-3.5">
-                        {statOosDemand.map((item) => (
-                          <div key={item.perfume_id} className="flex items-center justify-between bg-black/20 border border-white/5 hover:border-burgundy-500/20 rounded-xl p-3">
-                            <div className="flex flex-col">
-                              <span className="text-[9px] uppercase tracking-wider font-semibold text-gold-500">
-                                {item.brand_name}
-                              </span>
-                              <span className="text-xs font-bold text-white mt-0.5">
-                                {item.perfume_name}
-                              </span>
+                    {/* Metric Block: Most Matched Perfumes (أكثر العطور تطابقاً مع البحث) */}
+                    <div className="bg-gradient-to-br from-[#3E2723] to-[#2d1b14] border border-yellow-600/30 rounded-3xl p-6 shadow-2xl shadow-black/50 flex flex-col gap-4">
+                      <h4 className="text-xs uppercase tracking-widest font-bold text-[#D4AF37] flex items-center gap-2 pb-3 border-b border-yellow-600/20">
+                        <TrendingUp className="h-4 w-4 text-[#FFD700]" />
+                        {t('stat_most_matched_perfumes')}
+                      </h4>
+                      {!matchedPerfumes || matchedPerfumes.length === 0 ? (
+                        <div className="py-10 flex flex-col items-center justify-center text-center">
+                          <Sparkles className="h-5 w-5 text-[#D4AF37]/70 mb-2 animate-pulse" />
+                          <p className="text-xs font-semibold text-[#D4AF37] tracking-wide">
+                            في انتظار أول عملية بحث...
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {matchedPerfumes?.map((item, idx) => (
+                            <div
+                              key={item.perfume_id}
+                              className="group flex items-center justify-between rounded-2xl bg-[#1e110c]/70 border border-yellow-600/20 hover:border-[#D4AF37]/60 hover:shadow-[0_0_18px_rgba(212,175,55,0.22)] px-4 py-3 transition-all duration-300"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-[9px] uppercase tracking-wider font-bold text-[#D4AF37]">
+                                  #{idx + 1} • {item.brand_name}
+                                </span>
+                                <span className="text-xs font-bold text-[#FAF3E0] group-hover:text-[#FFD700] transition-colors mt-0.5">
+                                  {item.perfume_name}
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full bg-[#D4AF37]/15 border border-yellow-600/40 text-[10px] font-bold text-[#FFD700] shadow-sm">
+                                  {item.match_count} {t('matches_count_label')}
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded bg-burgundy-950/80 border border-burgundy-500/30 text-[9px] font-bold text-burgundy-400">
-                                {item.search_count} Hits
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom-Left Space: Slow-Moving Animated Antique "Parfum World" Sanctuary */}
+                    <div className="relative overflow-hidden isolate z-0 flex-1 min-h-[210px] rounded-3xl border border-yellow-600/30 bg-[#2d1b14] shadow-2xl shadow-black/60 flex flex-col items-center justify-center p-6 text-center select-none">
+                      {/* Slow 18s CSS breathing radial gold aura */}
+                      <div className="absolute inset-0 royal-oud-ambient-canvas pointer-events-none" />
+
+                      {/* CSS-only floating golden dust particles */}
+                      <span
+                        className="royal-gold-dust-slow absolute top-6 left-10 h-2 w-2 rounded-full bg-[#FFD700]/60 blur-[1px] pointer-events-none"
+                      />
+                      <span
+                        className="royal-gold-dust-slower absolute bottom-8 left-1/4 h-1.5 w-1.5 rounded-full bg-[#D4AF37]/70 blur-[0.5px] pointer-events-none"
+                      />
+                      <span
+                        className="royal-gold-dust-slow absolute top-10 right-14 h-2.5 w-2.5 rounded-full bg-[#F59E0B]/40 blur-[1px] pointer-events-none"
+                      />
+                      <span
+                        className="royal-gold-dust-slower absolute bottom-6 right-12 h-1.5 w-1.5 rounded-full bg-[#FFD700]/65 pointer-events-none"
+                      />
+
+                      {/* Antique Parfum World Crest & Motto */}
+                      <div className="relative z-10 flex flex-col items-center gap-2.5 max-w-xs">
+                        <div className="h-11 w-11 rounded-full bg-[#1e110c]/80 border border-yellow-600/40 flex items-center justify-center shadow-[0_0_25px_rgba(212,175,55,0.28)]">
+                          <Sparkles className="h-5 w-5 text-[#FFD700]" />
+                        </div>
+                        <span className="font-serif text-sm tracking-[0.22em] uppercase font-bold text-[#FFD700]">
+                          Maison Royal Oud
+                        </span>
+                        <p className="text-[11px] text-[#e6d5b8]/80 font-light leading-relaxed">
+                          حيث تلتقي نفحات العود الملكي بالذهب الخالص في تناغم عطري خالد
+                        </p>
                       </div>
-                    ) : (
-                      <p className="text-xs text-neutral-500 italic py-6 text-center">All highly searched perfumes are in stock.</p>
-                    )}
+                    </div>
+
                   </div>
 
                 </div>
@@ -1297,142 +1942,559 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* TAB 4: Store Settings Panel */}
+            {/* TAB 4: Store Settings Panel (Session 12: 3-Tab Royal Oud General Settings) */}
             {activeTab === 'settings' && (
-              <div className="max-w-2xl mx-auto bg-neutral-900/40 border border-white/5 rounded-3xl p-6 md:p-8 shadow-xl animate-in fade-in duration-200">
-                <h3 className="font-serif text-lg font-bold text-white border-b border-white/5 pb-3 mb-6 flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-gold-500" />
-                  {t('tab_settings')}
-                </h3>
-
-                <form onSubmit={handleSaveSettings} className="space-y-6">
-                  
-                  {/* Store Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-400 flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-gold-400" />
-                      {t('store_name_label')}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={settingsForm.store_name}
-                      onChange={(e) => setSettingsForm(prev => ({ ...prev, store_name: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
-                    />
+              <div
+                dir="rtl"
+                className="max-w-3xl mx-auto oud-card-surface rounded-3xl p-6 md:p-8 shadow-2xl space-y-6 text-start"
+              >
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-[#2D1B14] border border-[#D4AF37]/40 flex items-center justify-center shrink-0">
+                      <Settings className="h-5 w-5 text-[#F9E29C]" />
+                    </div>
+                    <div>
+                      <h3 className="font-arabic-display text-xl font-bold gold-metallic-text">
+                        الإعدادات العامة
+                      </h3>
+                      <p className="text-xs text-[#A8988A] mt-0.5">
+                        إدارة هوية المتجر، قنوات التواصل، وإعدادات الأمان الخاصة بالمالك
+                      </p>
+                    </div>
                   </div>
+                </div>
 
-                  {/* Slogan */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-400 flex items-center gap-1.5">
-                      <Tag className="h-3.5 w-3.5 text-gold-400" />
-                      {t('slogan_label')}
-                    </label>
-                    <input
-                      type="text"
-                      value={settingsForm.store_slogan}
-                      onChange={(e) => setSettingsForm(prev => ({ ...prev, store_slogan: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
-                    />
-                  </div>
-
-                  {/* WhatsApp Order phone */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-400 flex items-center gap-1.5">
-                      <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-                      {t('whatsapp_number_label')}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="+212600000000"
-                      value={settingsForm.whatsapp_number}
-                      onChange={(e) => setSettingsForm(prev => ({ ...prev, whatsapp_number: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50 font-mono"
-                    />
-                  </div>
-
-                  {/* Google Maps link */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-neutral-400 flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5 text-rose-400" />
-                      {t('maps_link_label')}
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://maps.google.com/..."
-                      value={settingsForm.google_maps_link}
-                      onChange={(e) => setSettingsForm(prev => ({ ...prev, google_maps_link: e.target.value }))}
-                      className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50 font-mono"
-                    />
-                  </div>
-
-                  {/* Save Settings */}
+                {/* 3 Royal Oud Sub-Tabs Navigation */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-[#120A07] p-1.5 rounded-2xl border border-[#D4AF37]/20">
                   <button
-                    type="submit"
-                    disabled={saveLoading}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-bold text-xs shadow-xl shadow-gold-500/10 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => {
+                      setSettingsSubTab('identity')
+                      setSettingsToast(null)
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      settingsSubTab === 'identity'
+                        ? 'bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C]'
+                        : 'text-[#A8988A] hover:text-[#F5EFE6]'
+                    }`}
                   >
-                    {saveLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-neutral-950" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    <span>{t('save')}</span>
+                    <Sparkles className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <span>الهوية والشعار</span>
                   </button>
 
-                </form>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsSubTab('contact')
+                      setSettingsToast(null)
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      settingsSubTab === 'contact'
+                        ? 'bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C]'
+                        : 'text-[#A8988A] hover:text-[#F5EFE6]'
+                    }`}
+                  >
+                    <Globe className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <span>التواصل والموقع</span>
+                  </button>
 
-                {/* Change Admin Password */}
-                <div className="mt-10 pt-8 border-t border-white/5 space-y-6">
-                  <h4 className="font-serif text-base font-bold text-white flex items-center gap-2">
-                    <KeyRound className="h-4.5 w-4.5 text-gold-400" />
-                    {t('change_password_title')}
-                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsSubTab('security')
+                      setPasswordToast(null)
+                    }}
+                    className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                      settingsSubTab === 'security'
+                        ? 'bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C]'
+                        : 'text-[#A8988A] hover:text-[#F5EFE6]'
+                    }`}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <span>الأمان وكلمة المرور</span>
+                  </button>
+                </div>
 
-                  <form onSubmit={handleChangePassword} className="space-y-4">
+                {/* Feedback Banner for Tab 1 & Tab 2 */}
+                {settingsToast && settingsSubTab !== 'security' && (
+                  <div
+                    role="status"
+                    className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl border text-xs font-bold ${
+                      settingsToast.type === 'success'
+                        ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                        : 'bg-red-500/15 border-red-500/35 text-red-300'
+                    }`}
+                  >
+                    {settingsToast.type === 'success' ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                    )}
+                    <span>{settingsToast.text}</span>
+                  </div>
+                )}
+
+                {/* TAB 1: الهوية والشعار (Brand Identity & Logo) */}
+                {settingsSubTab === 'identity' && (
+                  <form onSubmit={handleSaveIdentitySettings} className="space-y-6">
+                    {/* Live Header Mini-Preview (Clean horizontal layout, zero overlapping shapes) */}
+                    <div className="bg-[#120A07] border border-[#D4AF37]/25 rounded-2xl p-4 space-y-2.5">
+                      <span className="text-[11px] font-bold text-[#D4AF37] block">
+                        معاينة حية لرأس المتجر
+                      </span>
+                      <div className="flex items-center justify-between bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {settingsForm.logo_url ? (
+                            <img
+                              src={settingsForm.logo_url}
+                              alt={settingsForm.shop_name || 'Shop Logo'}
+                              className="h-11 w-11 rounded-full object-cover border border-[#D4AF37]/50 shrink-0 bg-[#120A07]"
+                            />
+                          ) : (
+                            <div className="h-11 w-11 rounded-full bg-[#2D1B14] border border-[#D4AF37]/50 flex items-center justify-center shrink-0">
+                              <Sparkles className="h-5 w-5 text-[#F9E29C]" />
+                            </div>
+                          )}
+                          <div className="text-start">
+                            <span className="font-arabic-display text-xl font-bold gold-metallic-text block leading-tight">
+                              {settingsForm.shop_name.trim() || 'ParfumWorld'}
+                            </span>
+                            <span className="text-xs text-[#A8988A] block mt-0.5">
+                              {settingsForm.slogan.trim() || 'اكتشف توقيعك العطري'}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-[#A8988A] bg-[#120A07] border border-[#D4AF37]/15 px-2.5 py-1 rounded-full">
+                          {settingsForm.logo_url ? 'شعار مخصص' : 'الشعار الافتراضي'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Shop Name Input */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#F5EFE6] flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        <span>اسم المتجر</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={60}
+                        value={settingsForm.shop_name}
+                        onChange={(e) =>
+                          setSettingsForm(prev => ({ ...prev, shop_name: e.target.value }))
+                        }
+                        placeholder="ParfumWorld"
+                        className="w-full bg-[#120A07] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] placeholder:text-[#A8988A]/50 focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+
+                    {/* Personal Slogan Input (max 80 chars) */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#F5EFE6] flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5 text-[#D4AF37]" />
+                          <span>العبارة الترحيبية (الشعار اللفظي)</span>
+                        </label>
+                        <span dir="ltr" className="text-[10px] font-mono text-[#A8988A]">
+                          {settingsForm.slogan.length} / 80
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        maxLength={80}
+                        value={settingsForm.slogan}
+                        onChange={(e) =>
+                          setSettingsForm(prev => ({
+                            ...prev,
+                            slogan: e.target.value.slice(0, 80)
+                          }))
+                        }
+                        placeholder="اكتشف توقيعك العطري"
+                        className="w-full bg-[#120A07] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] placeholder:text-[#A8988A]/50 focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+
+                    {/* Shop Logo Uploader & Restore Default Logo */}
+                    <div className="space-y-2.5 bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-xs font-bold text-[#F5EFE6] block">
+                            شعار المتجر (PNG / JPG / WEBP — بحد أقصى 2MB)
+                          </span>
+                          <span className="text-[11px] text-[#A8988A] block mt-0.5">
+                            يتم الحفاظ على شعارك الحالي تلقائياً عند تعديل الاسم أو العبارة الترحيبية
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2D1B14] border border-[#D4AF37] text-[#F9E29C] text-xs font-bold cursor-pointer hover:bg-[#3E2723] transition-colors">
+                            {uploadingLogo ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-[#F9E29C]" />
+                            ) : (
+                              <Upload className="h-3.5 w-3.5 text-[#D4AF37]" />
+                            )}
+                            <span>رفع شعار جديد</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={handleLogoUpload}
+                              disabled={uploadingLogo}
+                              className="hidden"
+                            />
+                          </label>
+
+                          {settingsForm.logo_url && (
+                            <button
+                              type="button"
+                              disabled={uploadingLogo}
+                              onClick={handleRestoreDefaultLogo}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#1E120D] border border-[#D4AF37]/25 hover:border-[#D4AF37] text-xs font-semibold text-[#A8988A] hover:text-[#F9E29C] transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              <span>استعادة الشعار الافتراضي</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Save Identity Button */}
+                    <button
+                      type="submit"
+                      disabled={saveLoading || uploadingLogo}
+                      className="w-full py-3.5 rounded-2xl gold-metallic-bg font-extrabold text-xs sm:text-sm shadow-xl transition-transform duration-150 active:scale-95 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {saveLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-[#120A07]" />
+                      ) : (
+                        <Save className="h-4 w-4 text-[#120A07]" />
+                      )}
+                      <span>حفظ الهوية والشعار</span>
+                    </button>
+                  </form>
+                )}
+
+                {/* TAB 2: التواصل والموقع (Contact, Location & Socials) */}
+                {settingsSubTab === 'contact' && (
+                  <form onSubmit={handleSaveContactSettings} className="space-y-6">
+                    {/* WhatsApp Number & Live wa.me Preview */}
+                    <div className="space-y-2 bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4">
+                      <label className="text-xs font-bold text-[#F5EFE6] flex items-center gap-1.5">
+                        <MessageSquare className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        <span>رقم واتساب لاستقبال الطلبات</span>
+                      </label>
+                      <input
+                        dir="ltr"
+                        type="text"
+                        placeholder="0550123456 أو +213550123456"
+                        value={settingsForm.whatsapp_number}
+                        onChange={(e) =>
+                          setSettingsForm(prev => ({
+                            ...prev,
+                            whatsapp_number: e.target.value
+                          }))
+                        }
+                        className="w-full bg-[#1E120D] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] font-mono placeholder:text-[#A8988A]/50 focus:outline-none focus:border-[#D4AF37] text-left"
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-[#A8988A]">
+                        <span>يقبل الأرقام الجزائرية (05 / 06 / 07) ويحولها تلقائياً للصيغة الدولية</span>
+                        {normalizeAlgerianWhatsapp(settingsForm.whatsapp_number) && (
+                          <span
+                            dir="ltr"
+                            className="font-mono text-[#F9E29C] bg-[#2D1B14] border border-[#D4AF37]/35 px-2.5 py-0.5 rounded-lg inline-flex items-center gap-1"
+                          >
+                            <ExternalLink className="h-3 w-3 text-[#D4AF37]" />
+                            {`https://wa.me/${normalizeAlgerianWhatsapp(settingsForm.whatsapp_number)}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Google Maps Location Link */}
+                    <div className="space-y-1.5 bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4">
+                      <label className="text-xs font-bold text-[#F5EFE6] flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        <span>رابط موقع المتجر (خرائط جوجل — اختياري)</span>
+                      </label>
+                      <input
+                        dir="ltr"
+                        type="text"
+                        placeholder="https://maps.google.com/..."
+                        value={settingsForm.location_url}
+                        onChange={(e) =>
+                          setSettingsForm(prev => ({ ...prev, location_url: e.target.value }))
+                        }
+                        className="w-full bg-[#1E120D] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] font-mono placeholder:text-[#A8988A]/50 focus:outline-none focus:border-[#D4AF37] text-left"
+                      />
+                    </div>
+
+                    {/* Social Media Platforms (Instagram, Facebook, TikTok) */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#F9E29C]">
+                          حسابات التواصل الاجتماعي (اختيارية — الحقول الفارغة لا تظهر للزبائن)
+                        </span>
+                      </div>
+
+                      {/* Instagram */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-[#A8988A] block">
+                            اسم حساب إنستغرام (Instagram)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="@maison_oud"
+                            value={settingsForm.instagram_handle}
+                            onChange={(e) =>
+                              setSettingsForm(prev => ({
+                                ...prev,
+                                instagram_handle: e.target.value
+                              }))
+                            }
+                            className="w-full bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl py-2 px-3 text-xs text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-[#A8988A] block">
+                            رابط إنستغرام (URL)
+                          </label>
+                          <input
+                            dir="ltr"
+                            type="text"
+                            placeholder="https://instagram.com/..."
+                            value={settingsForm.instagram_url}
+                            onChange={(e) =>
+                              setSettingsForm(prev => ({
+                                ...prev,
+                                instagram_url: e.target.value
+                              }))
+                            }
+                            className="w-full bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl py-2 px-3 text-xs text-[#F5EFE6] font-mono focus:outline-none focus:border-[#D4AF37] text-left"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Facebook */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-[#A8988A] block">
+                            اسم صفحة فيسبوك (Facebook)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Maison Royal Oud"
+                            value={settingsForm.facebook_handle}
+                            onChange={(e) =>
+                              setSettingsForm(prev => ({
+                                ...prev,
+                                facebook_handle: e.target.value
+                              }))
+                            }
+                            className="w-full bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl py-2 px-3 text-xs text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-[#A8988A] block">
+                            رابط فيسبوك (URL)
+                          </label>
+                          <input
+                            dir="ltr"
+                            type="text"
+                            placeholder="https://facebook.com/..."
+                            value={settingsForm.facebook_url}
+                            onChange={(e) =>
+                              setSettingsForm(prev => ({
+                                ...prev,
+                                facebook_url: e.target.value
+                              }))
+                            }
+                            className="w-full bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl py-2 px-3 text-xs text-[#F5EFE6] font-mono focus:outline-none focus:border-[#D4AF37] text-left"
+                          />
+                        </div>
+                      </div>
+
+                      {/* TikTok */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-[#A8988A] block">
+                            اسم حساب تيك توك (TikTok)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="@maison_oud"
+                            value={settingsForm.tiktok_handle}
+                            onChange={(e) =>
+                              setSettingsForm(prev => ({
+                                ...prev,
+                                tiktok_handle: e.target.value
+                              }))
+                            }
+                            className="w-full bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl py-2 px-3 text-xs text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-[#A8988A] block">
+                            رابط تيك توك (URL)
+                          </label>
+                          <input
+                            dir="ltr"
+                            type="text"
+                            placeholder="https://tiktok.com/@..."
+                            value={settingsForm.tiktok_url}
+                            onChange={(e) =>
+                              setSettingsForm(prev => ({
+                                ...prev,
+                                tiktok_url: e.target.value
+                              }))
+                            }
+                            className="w-full bg-[#1E120D] border border-[#D4AF37]/20 rounded-xl py-2 px-3 text-xs text-[#F5EFE6] font-mono focus:outline-none focus:border-[#D4AF37] text-left"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Save Contact & Socials Button */}
+                    <button
+                      type="submit"
+                      disabled={saveLoading}
+                      className="w-full py-3.5 rounded-2xl gold-metallic-bg font-extrabold text-xs sm:text-sm shadow-xl transition-transform duration-150 active:scale-95 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {saveLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-[#120A07]" />
+                      ) : (
+                        <Save className="h-4 w-4 text-[#120A07]" />
+                      )}
+                      <span>حفظ بيانات التواصل والموقع</span>
+                    </button>
+                  </form>
+                )}
+
+                {/* TAB 3: الأمان وكلمة المرور (Security & Password) */}
+                {settingsSubTab === 'security' && (
+                  <form onSubmit={handleChangePassword} className="space-y-5">
+                    <div className="bg-[#120A07] border border-[#D4AF37]/20 rounded-2xl p-4 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-[#F5EFE6] block">
+                          حساب المالك المسجل حالياً
+                        </span>
+                        <span dir="ltr" className="text-xs font-mono text-[#F9E29C] mt-0.5 block">
+                          {adminEmail || 'Admin Account'}
+                        </span>
+                      </div>
+                      <KeyRound className="h-5 w-5 text-[#D4AF37]" />
+                    </div>
+
+                    {passwordToast && (
+                      <div
+                        role="status"
+                        className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl border text-xs font-bold ${
+                          passwordToast.type === 'success'
+                            ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-300'
+                            : 'bg-red-500/15 border-red-500/35 text-red-300'
+                        }`}
+                      >
+                        {passwordToast.type === 'success' ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                        )}
+                        <span>{passwordToast.text}</span>
+                      </div>
+                    )}
+
+                    {/* Current Password */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-[#F5EFE6] block">
+                        كلمة المرور الحالية (لإعادة التحقق)
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        autoComplete="current-password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-[#120A07] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+
+                    {/* New Password + Strength Indicator */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* New Password */}
-                      <div className="space-y-1.5 text-start">
-                        <label className="text-xs font-semibold text-neutral-400 block">{t('new_password_label')}</label>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#F5EFE6] block">
+                          كلمة المرور الجديدة (8 أحرف على الأقل)
+                        </label>
                         <input
                           type="password"
                           required
+                          minLength={8}
+                          autoComplete="new-password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
+                          className="w-full bg-[#120A07] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
                         />
                       </div>
 
-                      {/* Confirm Password */}
-                      <div className="space-y-1.5 text-start">
-                        <label className="text-xs font-semibold text-neutral-400 block">{t('confirm_password_label')}</label>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#F5EFE6] block">
+                          تأكيد كلمة المرور الجديدة
+                        </label>
                         <input
                           type="password"
                           required
+                          minLength={8}
+                          autoComplete="new-password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full bg-neutral-950 border border-white/10 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-gold-500/50"
+                          className="w-full bg-[#120A07] border border-[#D4AF37]/25 rounded-xl py-2.5 px-4 text-sm text-[#F5EFE6] focus:outline-none focus:border-[#D4AF37]"
                         />
                       </div>
                     </div>
 
+                    {/* Live Password Strength Meter */}
+                    {newPassword.length > 0 && (
+                      <div className="space-y-1.5 bg-[#120A07] border border-[#D4AF37]/15 rounded-xl p-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[#A8988A]">قوة كلمة المرور الجديدة:</span>
+                          <span className="font-bold text-[#F9E29C]">
+                            {getPasswordStrength(newPassword).label}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 h-1.5">
+                          {[1, 2, 3].map((level) => {
+                            const strength = getPasswordStrength(newPassword)
+                            return (
+                              <div
+                                key={level}
+                                className={`rounded-full transition-colors ${
+                                  strength.score >= level ? strength.colorClass : 'bg-[#2D1B14]'
+                                }`}
+                              />
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <button
                       type="submit"
                       disabled={passLoading}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-neutral-950 font-bold text-xs shadow-xl shadow-gold-500/10 active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full py-3.5 rounded-2xl gold-metallic-bg font-extrabold text-xs sm:text-sm shadow-xl transition-transform duration-150 active:scale-95 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       {passLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-neutral-950" />
+                        <Loader2 className="h-4 w-4 animate-spin text-[#120A07]" />
                       ) : (
-                        <Save className="h-4 w-4" />
+                        <KeyRound className="h-4 w-4 text-[#120A07]" />
                       )}
-                      <span>{t('update_password_button')}</span>
+                      <span>تحديث كلمة المرور</span>
                     </button>
                   </form>
-                </div>
+                )}
               </div>
             )}
 
